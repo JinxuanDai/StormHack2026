@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pygame
 
-from lab_panic.main import GameState, Renderer, display_position
+from lab_panic.main import CARRIED_SAMPLE_LABEL_GAP, GameState, Renderer, display_position
 from lab_panic.ui import theme
 
 
@@ -62,7 +62,7 @@ class CarriedSampleLabelTests(unittest.TestCase):
                         self.assertEqual(bounds, sprite.get_rect(midbottom=(x, y + 22)))
                         self.assertEqual(value, f"SAMPLE #{player_id + 1}")
                         self.assertEqual(label.centerx, bounds.centerx)
-                        self.assertTrue(6 <= bounds.top - label.bottom <= 8)
+                        self.assertEqual(bounds.top - label.bottom, CARRIED_SAMPLE_LABEL_GAP)
                         self.assertFalse(label.colliderect(bounds))
 
     def test_labels_follow_each_players_movement(self):
@@ -105,7 +105,7 @@ class CarriedSampleLabelTests(unittest.TestCase):
         for player_id, (_, label, _) in enumerate(labels):
             bounds = self.renderer.ui.player_sprite_bounds(str(player_id))
             self.assertEqual(bounds.size, frame.get_size())
-            self.assertTrue(6 <= bounds.top - label.bottom <= 8)
+            self.assertEqual(bounds.top - label.bottom, CARRIED_SAMPLE_LABEL_GAP)
             self.assertFalse(label.colliderect(bounds))
 
     def test_report_and_package_label_positions_are_preserved(self):

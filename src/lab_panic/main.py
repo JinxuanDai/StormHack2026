@@ -43,6 +43,7 @@ PATIENT_SECONDS = 45.0
 PLAYER_SPEED = 250.0
 INTERACT_DISTANCE = 54
 SNAPSHOT_RATE = 1.0 / 30.0
+CARRIED_SAMPLE_LABEL_GAP = 18
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_DIR = REPO_ROOT / "assets"
@@ -704,7 +705,10 @@ class Renderer:
                     if item["kind"] == "sample":
                         sprite_box = self.ui.player_sprite_bounds(str(index))
                         label_box = pygame.Rect((0, 0), self.ui.fonts.small.size(label))
-                        label_box.midbottom = (sprite_box.centerx, sprite_box.top - 8)
+                        label_box.midbottom = (
+                            sprite_box.centerx,
+                            sprite_box.top - CARRIED_SAMPLE_LABEL_GAP,
+                        )
                         self.text(label, label_box.center, theme.DARK_INK, center=True)
                     else:
                         self.text(label, (x, y - 54), theme.DARK_INK, center=True)

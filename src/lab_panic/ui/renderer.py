@@ -8,6 +8,12 @@ from .assets import AssetStore, STATION_SPRITES
 from .views import RoundView, StationView
 
 
+# Display coordinates are rounded and remote snapshots may alternate by one
+# pixel even when a player is not changing direction.  Treat that as visual
+# noise so the character does not flicker between left and right walk rows.
+PLAYER_POSITION_JITTER = 1
+
+
 class Renderer:
     def __init__(self, assets: AssetStore | None = None) -> None:
         self.assets = assets if assets is not None else AssetStore()
@@ -42,7 +48,11 @@ class Renderer:
         dx = player.x - previous[0]
         dy = player.y - previous[1]
         facing = self._player_facing.get(player.player_id, "down")
-        if dx or dy:
+        meaningful_motion = (
+            abs(dx) > PLAYER_POSITION_JITTER
+            or abs(dy) > PLAYER_POSITION_JITTER
+        )
+        if meaningful_motion:
             if abs(dx) > abs(dy):
                 facing = "right" if dx > 0 else "left"
             else:
