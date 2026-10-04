@@ -1,64 +1,122 @@
 # Lab Panic
 
-2D cooperative hospital biochemistry laboratory game using Python and Pygame.
+Lab Panic is a two-player LAN hospital hematology game built with Python and
+Pygame. Players cooperate to collect patient blood samples, run the requested
+tests, package the correct reports, and submit as many complete patient orders
+as possible during a three-minute shift.
 
-## Current status
-Local scaffold: window, WASD movement, placeholder workstation layout.
-LAN, sample interactions, processing, countdown and win/loss rules are not implemented.
-Target: receive -> centrifuge -> add reagent -> analyze -> submit report.
-Report submission succeeds; unfinished samples fail when the round ends.
-The experiment process is fictional and simplified.
+> The laboratory workflow is fictional and simplified for gameplay. It is not
+> clinical guidance.
 
-## Windows setup
-Team baseline: **Python 3.12**. Python 3.13 is also permitted; avoid 3.14 with
-this pinned Pygame release. Install 3.12 if `py -3.12` is unavailable.
+## Current demo
+
+- Two-player host/client play over the same Wi-Fi or LAN
+- Arrow keys to move and Space to interact on both computers
+- One active patient with one to three randomized orders
+- CBC: 2 seconds, white report
+- Blood smear + microscope: 3 seconds, purple report
+- Coagulation: 4 seconds, yellow report
+- Visible workstation progress bars
+- Package table accepts only requested, non-duplicate reports
+- Trash discards unwanted samples, reports, or packages
+- Three-minute timer; three completed patients reaches the victory target
+- Laboratory sprite sheets from `assets/sprites/laboratory/`
+
+## Requirements
+
+- Python 3.12 or 3.13 (Python 3.14 is not supported yet)
+- Both computers connected to the same local network
+- TCP port `50505` allowed through the firewall
+
+## Fast start — Windows
+
+1. Install [Python 3.12](https://www.python.org/downloads/) and enable
+   **Add Python to PATH** during installation.
+2. Clone or download this repository.
+3. Double-click `Start Lab Panic.bat`.
+
+The first launch creates `.venv` and installs Pygame automatically. Later
+launches reuse the same environment.
+
+## Fast start — macOS
+
+1. Install Python 3.12 or 3.13.
+2. Clone or download this repository.
+3. Right-click `Start Lab Panic.command`, choose **Open**, then confirm. Later
+   launches can be opened normally by double-clicking it.
+
+If macOS says the file is not executable, run once from Terminal:
+
+```bash
+chmod +x "Start Lab Panic.command"
+./Start\ Lab\ Panic.command
+```
+
+## Play over LAN
+
+1. On computer 1, start the game and select **HOST GAME**.
+2. The host screen displays its local IP address, for example `192.168.1.23`.
+3. On computer 2, start the game, enter that IP, then select **JOIN GAME**.
+4. Allow Python network access if Windows or macOS asks.
+5. Both players use the arrow keys to move and Space to interact. Escape quits.
+
+The timer begins when player 2 connects. The host is authoritative for player
+positions, samples, workstation timers, reports, packages, and scoring.
+
+## Terminal setup
+
+### Windows PowerShell
 
 ```powershell
-git clone https://github.com/JinxuanDai/StormHack2026.git
-cd StormHack2026
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pip install -e . --no-deps
 .\.venv\Scripts\python.exe -m lab_panic.main
 ```
 
-Activation is optional. This existing checkout already has a Python 3.12 .venv.
-WASD moves; Escape or closing the window exits.
+### macOS/Linux
 
-## Smoke check
-```powershell
-.\.venv\Scripts\python.exe -m lab_panic.main --smoke-test
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -e . --no-deps
+.venv/bin/python -m lab_panic.main
 ```
-Renders three frames headlessly then exits. This does not verify visible graphics or LAN.
+
+Direct command-line hosting and joining are also supported:
+
+```bash
+python -m lab_panic.main --host
+python -m lab_panic.main --join 192.168.1.23
+```
+
+## Verification
+
+```bash
+python -m lab_panic.main --smoke-test
+```
+
+The smoke test loads the repository assets, renders three frames headlessly,
+and exits. LAN transport has been tested locally on loopback; the team should
+also test between two physical computers before release.
 
 ## Team workflow
-Read AGENTS.md before coding or prompting Codex.
+
+Read `AGENTS.md` before coding or prompting Codex. Work on a feature branch,
+commit and push it, then open a pull request into `main`. Do not force-push
+`main`, commit `.venv`, or overwrite another teammate's changes.
 
 | Owner | Directory | Responsibility |
 | --- | --- | --- |
-| A | src/lab_panic/networking/, main.py | LAN, players, integration |
-| B | src/lab_panic/gameplay/ | Samples, stations, timers |
-| C | src/lab_panic/ui/, assets/ | Rendering, HUD, sprites, sound |
+| A | `src/lab_panic/networking/`, `main.py` | LAN, players, integration |
+| B | `src/lab_panic/gameplay/` | Samples, stations, timers |
+| C | `src/lab_panic/ui/`, `assets/` | Rendering, HUD, sprites, sound |
 
-```powershell
-git switch main
-git pull --ff-only
-git switch -c feature/sample-flow
-# Make and verify a small change.
-git add .
-git commit -m "Add sample processing states"
-git push -u origin feature/sample-flow
-```
-Open a PR into main. A reviews and integrates every 2-3 hours.
-Commit local work before switching branches or pulling. Coordinate dependency/main.py edits.
-First milestone: two computers join, move and consistently pick up the same sample.
-Host/Join commands will be documented once implemented.
+## Assets and Unity archive
 
-## Unity archive
-Tag `unity-prototype` preserves the final tracked Unity project.
-Ignored `_unity_backup/` retains local Unity files and caches.
-Inspect the archive in a separate checkout:
+Laboratory sprite sheets are stored in `assets/sprites/laboratory/`. Record the
+source, author, license, and modifications in `assets/README.md` before public
+distribution.
 
-```powershell
-git clone --branch unity-prototype https://github.com/JinxuanDai/StormHack2026.git ../LabPanic-UnityArchive
-```
+The `unity-prototype` tag preserves the final tracked Unity project. Ignored
+`_unity_backup/` retains local Unity files and caches.
