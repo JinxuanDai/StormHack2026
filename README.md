@@ -99,14 +99,12 @@ python3 -m venv .venv
 Direct command-line hosting and joining are also supported:
 
 ```bash
-python -m lab_panic.main --local-demo
+python -m lab_panic.main
 python -m lab_panic.main --host
 python -m lab_panic.main --join 192.168.1.23
 ```
 
-`--local-demo` runs the actual movable game and full two-patient rules with one
-player, without waiting for a second computer. It is intended for local feature
-testing; the normal Host/Join modes remain the final two-player LAN experience.
+Running without options opens the original `HOST` / `JOIN` / `QUIT` menu.
 
 ## Verification
 

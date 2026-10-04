@@ -732,31 +732,6 @@ def run_host(screen: pygame.Surface) -> None:
         network.close()
 
 
-def run_local_demo(screen: pygame.Surface) -> None:
-    """Run the real game loop locally with one controllable player."""
-    renderer = Renderer(screen)
-    clock = pygame.time.Clock()
-    game = GameState()
-    game.start()
-    running = True
-    previous_space = False
-    while running:
-        dt = min(clock.tick(FPS) / 1000.0, 0.05)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
-                running = False
-        x, y = directional_input()
-        space = pygame.key.get_pressed()[pygame.K_SPACE]
-        action = space and not previous_space
-        previous_space = space
-        game.move(0, x, y, dt)
-        if action:
-            game.interact(0)
-        game.update(dt)
-        renderer.draw(game.snapshot(True), 0, "LOCAL PLAYABLE PREVIEW")
-        pygame.display.flip()
-
-
 def run_client(screen: pygame.Surface, host: str) -> None:
     try:
         network = ClientNetwork(host)
@@ -865,7 +840,6 @@ def parse_args() -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--host", action="store_true", help="host a LAN game")
     mode.add_argument("--join", metavar="IP", help="join a host by local IP")
-    mode.add_argument("--local-demo", action="store_true", help="run the real game locally with one player")
     mode.add_argument("--smoke-test", action="store_true", help="render menu, live states and results headlessly and exit")
     return parser.parse_args()
 
@@ -896,8 +870,6 @@ def main() -> int:
                 game.completed = completed
                 renderer.draw(game.snapshot(True), 0)
                 pygame.display.flip()
-        elif args.local_demo:
-            run_local_demo(screen)
         elif args.host:
             run_host(screen)
         elif args.join:
