@@ -1,5 +1,16 @@
 # Temporary Lab Panic sound effects
 
+## Background music
+
+`background_music.ogg` is the user-supplied background track. The main game
+streams it continuously through the menu, gameplay and results, at a mixer
+volume of 0.30 with an 800 ms fade-in. It loops until application exit and uses
+Pygame's dedicated music channel. Missing files or unavailable audio leave
+the game usable. Source/author/license information has not been supplied for
+this track; the procedural SFX provenance below applies only to the WAV files.
+
+## Generated sound effects
+
 These are temporary procedurally generated development SFX, generated locally
 for Lab Panic using Python's standard library. No external audio source,
 recording, sample pack, website, or third-party synthesis library was used.

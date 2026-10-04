@@ -39,7 +39,9 @@ class _Snapshot:
     connected: bool
     items: tuple[_Item | None, ...]
     stations: tuple[tuple[str, _Station], ...]
-    reports: frozenset[str]
+    reports: frozenset[tuple[int, str]]
+    multiple_patients: bool
+    discarded: tuple[int, ...]
 
     @classmethod
     def capture(cls, state: Mapping[str, Any]) -> "_Snapshot":
@@ -56,7 +58,11 @@ class _Snapshot:
             bool(state["finished"]), bool(state["connected"]), tuple(items),
             tuple(sorted((str(key), _Station(str(value["phase"]), int(value["patient"])))
                          for key, value in state["stations"].items())),
-            frozenset(str(test) for test in state["package_reports"]))
+            frozenset((int(patient["patient"]), str(test))
+                      for patient in state.get("patients", (state,))
+                      for test in patient["package_reports"]),
+            "patients" in state,
+            tuple(int(count) for count in state.get("discard_counts", ())))
 
     @property
     def active(self) -> bool:
@@ -113,8 +119,9 @@ class AudioObserver:
     ) -> tuple[AudioEvent, ...]:
         """Read the current main.py snapshot schema without retaining references.
 
-        The first snapshot, reconnect, patient change and session change are
-        silent baselines (apart from stopping previously requested loops).
+        The first snapshot, reconnect and session change are silent baselines.
+        Legacy single-patient changes also baseline; dual-patient snapshots
+        track reports by patient ID and preserve unrelated processing loops.
         Baseline processing stations do not start a loop retroactively.
         """
         current = _Snapshot.capture(state)
@@ -130,7 +137,7 @@ class AudioObserver:
         if (previous.finished and not current.finished) or (previous.started and not current.started):
             self._result_played = False
             return tuple(events) + self._stop_loops()
-        if current.patient != previous.patient:
+        if current.patient != previous.patient and not current.multiple_patients:
             return tuple(events) + self._stop_loops()
         if not current.active or not previous.active or self._result_played:
             return tuple(events) + self._stop_loops()
@@ -169,7 +176,10 @@ class AudioObserver:
 
         # A collected machine report gets its specific cue, not two one-shots.
         events.extend(AudioEvent("play", "pickup") for index in acquired if index not in collected)
-        if current.reports - previous.reports:
+        added_reports = current.reports - previous.reports
+        if added_reports:
             # Coalesce additions in one snapshot to avoid stacked identical SFX.
             events.append(AudioEvent("play", "package_insert", "package"))
+        if any(after > before for before, after in zip(previous.discarded, current.discarded)):
+            events.append(AudioEvent("play", "trash"))
         return tuple(events)

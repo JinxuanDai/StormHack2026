@@ -90,8 +90,13 @@ are described below.
 
 ## Audio Phase 1: standalone presentation architecture
 
-The audio architecture is not integrated into `main.py` and changes no gameplay,
-transport, timing or result rules. Phase 1 introduced the standalone architecture;
+The audio architecture is now integrated into `main.py` on both host and client.
+Confirmed snapshots trigger pickup, machine, processing and package cues.
+Dual-patient reports are tracked by patient ID; confirmed per-player discard
+counters trigger trash cues. Result presentation triggers one result cue per
+session. Disconnect and shutdown stop processing loops. Background music runs
+independently on the dedicated music channel. No timing or result rules change.
+Phase 1 introduced the standalone architecture;
 Phase 2 adds ten temporary generated WAVs and a listening preview, described below.
 Neither phase adds dependencies.
 
@@ -160,7 +165,7 @@ instructions, not gameplay commands.
 | `processing_complete` | `processing` to `output` for the same station patient; stop its loop first. |
 | `machine_remove` | `output` to `idle` plus an empty-handed player acquiring a report matching the station's test and prior patient. Replaces generic pickup for that acquisition. |
 | `package_insert` | `package_reports` gains tests for the same patient. Multiple additions in one snapshot produce one cue. |
-| `trash` | Explicit confirmed-action hook required from A; never inferred here. |
+| `trash` | Host-confirmed `discard_counts` increases; never inferred from item disappearance. |
 | `round_success` | Explicit `present_result("success")`, once per session. |
 | `round_failure` | Explicit `present_result("failure")`, once per session. |
 
@@ -195,7 +200,7 @@ there are no unique item IDs or event sequence IDs. Consequently some interactio
 can be missed, and exact causal attribution is not guaranteed. Reliable delivery
 of every interaction, including trash, needs host-authored events from A/B later.
 
-### Minimal future integration by A (not applied)
+### Integration pattern used by A
 
 In `main.py`, import the two classes:
 
@@ -303,5 +308,5 @@ durations, replacement instructions and the standard-library regeneration comman
 Replace files one-for-one and restart the demo to reload. These are development
 placeholders for listening review, not final production sound design.
 
-The observer and live host/client loops are unchanged. Phase 3 integration is
-still pending; this preview is the only new interactive playback entry point.
+The standalone preview remains available for auditioning individual cues.
+The main host/client loops now also play cues from confirmed gameplay state.
