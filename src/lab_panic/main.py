@@ -33,12 +33,14 @@ HUD_HEIGHT = 128
 FPS = 60
 PORT = 50505
 GAME_SECONDS = 180.0
+PATIENT_SECONDS = 45.0
 PLAYER_SPEED = 250.0
 INTERACT_DISTANCE = 54
 SNAPSHOT_RATE = 1.0 / 30.0
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_DIR = REPO_ROOT / "assets"
+HIGH_SCORE_FILE = REPO_ROOT / ".lab_panic_high_score.json"
 
 BG = (225, 233, 232)
 FLOOR_A = (205, 218, 216)
@@ -60,11 +62,13 @@ TEST_SECONDS = {"CBC": 2.0, "COAG": 4.0, "SMEAR": 3.0}
 TEST_COLOR = {"CBC": WHITE, "COAG": YELLOW, "SMEAR": PURPLE}
 
 ZONES = {
-    "sample": pygame.Rect(94, 158, 238, 92),
+    "sample_0": pygame.Rect(54, 158, 132, 92),
+    "sample_1": pygame.Rect(216, 158, 132, 92),
     "CBC": pygame.Rect(948, 158, 238, 92),
     "trash": pygame.Rect(28, 348, 130, 142),
     "submit": pygame.Rect(1122, 348, 130, 142),
-    "package": pygame.Rect(470, 322, 340, 126),
+    "package_0": pygame.Rect(430, 322, 172, 126),
+    "package_1": pygame.Rect(678, 322, 172, 126),
     "SMEAR": pygame.Rect(102, 574, 268, 104),
     "COAG": pygame.Rect(910, 574, 268, 104),
 }
@@ -250,35 +254,112 @@ class ClientNetwork:
 
 
 class GameState:
-    def __init__(self) -> None:
+    def __init__(self, high_score_path: Path | None = HIGH_SCORE_FILE) -> None:
         self.players = [
             {"x": 420.0, "y": 500.0, "item": None, "message": "", "message_until": 0.0},
             {"x": 826.0, "y": 500.0, "item": None, "message": "", "message_until": 0.0},
         ]
-        self.patient = 1
-        self.tasks: list[str] = []
+        self.next_patient_id = 1
+        self.patient_slots = [self._create_patient(), self._create_patient()]
         self.completed = 0
-        self.package_reports: list[str] = []
-        self.package_ready = False
+        self.score = 0
+        self.high_score_path = high_score_path
+        self.high_score = self._load_high_score()
         self.stations = {test: self._idle_station() for test in TESTS}
         self.remaining = GAME_SECONDS
         self.started = False
         self.finished = False
-        self.new_patient()
+
+    @property
+    def patient(self) -> int:
+        """Compatibility alias for older callers that inspected slot one."""
+        return int(self.patient_slots[0]["patient"])
+
+    @property
+    def tasks(self) -> list[str]:
+        return self.patient_slots[0]["tasks"]
+
+    @property
+    def package_reports(self) -> list[str]:
+        return self.patient_slots[0]["package_reports"]
+
+    @property
+    def package_ready(self) -> bool:
+        return bool(self.patient_slots[0]["package_ready"])
+
+    @package_ready.setter
+    def package_ready(self, value: bool) -> None:
+        self.patient_slots[0]["package_ready"] = value
+
+    def _create_patient(self) -> dict[str, Any]:
+        patient_id = self.next_patient_id
+        self.next_patient_id += 1
+        count = random.randint(1, 3)
+        tasks = random.sample(list(TESTS), count)
+        tasks.sort(key=TESTS.index)
+        return {
+            "patient": patient_id,
+            "tasks": tasks,
+            "remaining": PATIENT_SECONDS,
+            "package_reports": [],
+            "package_ready": False,
+            "package_taken": False,
+        }
+
+    def _load_high_score(self) -> int:
+        if self.high_score_path is None:
+            return 0
+        try:
+            payload = json.loads(self.high_score_path.read_text(encoding="utf-8"))
+            return max(0, int(payload.get("high_score", 0)))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return 0
+
+    def _save_high_score(self) -> None:
+        if self.high_score_path is None or self.score <= self.high_score:
+            return
+        self.high_score = self.score
+        temporary = self.high_score_path.with_suffix(".tmp")
+        try:
+            temporary.write_text(json.dumps({"high_score": self.high_score}) + "\n", encoding="utf-8")
+            temporary.replace(self.high_score_path)
+        except OSError:
+            pass
 
     @staticmethod
     def _idle_station() -> dict[str, Any]:
         return {"phase": "idle", "elapsed": 0.0, "patient": 0}
 
-    def new_patient(self) -> None:
-        count = random.randint(1, 3)
-        self.tasks = random.sample(list(TESTS), count)
-        self.tasks.sort(key=TESTS.index)
-        self.package_reports = []
-        self.package_ready = False
-        self.stations = {test: self._idle_station() for test in TESTS}
-        for player in self.players:
-            player["item"] = None
+    def _patient_index(self, patient_id: int) -> int | None:
+        for index, patient in enumerate(self.patient_slots):
+            if patient["patient"] == patient_id:
+                return index
+        return None
+
+    @staticmethod
+    def completion_score(remaining: float) -> int:
+        elapsed = PATIENT_SECONDS - remaining
+        if elapsed <= 10:
+            return 100
+        if elapsed <= 20:
+            return 80
+        if elapsed <= 30:
+            return 60
+        if elapsed <= 40:
+            return 40
+        return 20
+
+    def _replace_patient(self, slot_index: int, message: str) -> None:
+        old_id = self.patient_slots[slot_index]["patient"]
+        for test, station in self.stations.items():
+            if station["patient"] == old_id:
+                self.stations[test] = self._idle_station()
+        for player_id, player in enumerate(self.players):
+            item = player["item"]
+            if item and item.get("patient") == old_id:
+                player["item"] = None
+            self.say(player_id, message, 3.0)
+        self.patient_slots[slot_index] = self._create_patient()
 
     def start(self) -> None:
         self.started = True
@@ -328,6 +409,12 @@ class GameState:
 
         if self.near(player, ZONES["trash"]):
             if item:
+                if item["kind"] == "package":
+                    slot_index = self._patient_index(item["patient"])
+                    if slot_index is not None:
+                        patient = self.patient_slots[slot_index]
+                        patient["package_ready"] = True
+                        patient["package_taken"] = False
                 player["item"] = None
                 self.say(player_id, "Item discarded")
             else:
@@ -335,27 +422,35 @@ class GameState:
             return
 
         if self.near(player, ZONES["submit"]):
-            if item and item["kind"] == "package" and item["patient"] == self.patient:
+            if item and item["kind"] == "package":
+                slot_index = self._patient_index(item["patient"])
+                if slot_index is None:
+                    self.say(player_id, "REJECTED: that patient order has expired")
+                    return
+                patient_id = item["patient"]
+                points = self.completion_score(self.patient_slots[slot_index]["remaining"])
                 player["item"] = None
                 self.completed += 1
-                self.patient += 1
-                self.new_patient()
-                self.say(player_id, "Correct package submitted!", 2.6)
+                self.score += points
+                self._replace_patient(slot_index, f"Patient #{patient_id} submitted: +{points}")
                 return
             self.say(player_id, "Bring the completed package")
             return
 
-        if self.near(player, ZONES["sample"]):
-            if item is None:
-                player["item"] = {"kind": "sample", "patient": self.patient}
-                self.say(player_id, f"Picked up Sample #{self.patient}")
-            else:
-                self.say(player_id, "Hands are full")
-            return
+        for slot_index in range(2):
+            if self.near(player, ZONES[f"sample_{slot_index}"]):
+                patient_id = self.patient_slots[slot_index]["patient"]
+                if item is None:
+                    player["item"] = {"kind": "sample", "patient": patient_id}
+                    self.say(player_id, f"Picked up Sample #{patient_id}")
+                else:
+                    self.say(player_id, "Hands are full")
+                return
 
-        if self.near(player, ZONES["package"]):
-            self._interact_package(player_id)
-            return
+        for slot_index in range(2):
+            if self.near(player, ZONES[f"package_{slot_index}"]):
+                self._interact_package(player_id, slot_index)
+                return
 
         for test in TESTS:
             if self.near(player, ZONES[test]):
@@ -382,44 +477,48 @@ class GameState:
         if not item or item["kind"] != "sample":
             self.say(player_id, "This station needs a blood sample")
             return
-        if item["patient"] != self.patient:
-            self.say(player_id, "That sample is from an old patient")
+        if self._patient_index(item["patient"]) is None:
+            self.say(player_id, "That sample is from an expired patient")
             return
         player["item"] = None
-        station.update(phase="processing", elapsed=0.0, patient=self.patient)
+        station.update(phase="processing", elapsed=0.0, patient=item["patient"])
         self.say(player_id, f"Started {TEST_LABEL[test]}")
 
-    def _interact_package(self, player_id: int) -> None:
+    def _interact_package(self, player_id: int, slot_index: int) -> None:
         player = self.players[player_id]
         item = player["item"]
-        if self.package_ready:
+        patient = self.patient_slots[slot_index]
+        patient_id = patient["patient"]
+        if patient["package_ready"] and not patient["package_taken"]:
             if item is None:
-                player["item"] = {"kind": "package", "patient": self.patient}
-                self.package_ready = False
-                self.say(player_id, "Package collected — submit it!")
+                player["item"] = {"kind": "package", "patient": patient_id}
+                patient["package_ready"] = False
+                patient["package_taken"] = True
+                self.say(player_id, f"Package #{patient_id} collected — submit it!")
             else:
                 self.say(player_id, "Hands are full")
             return
         if not item or item["kind"] != "report":
             self.say(player_id, "Bring a required report")
             return
-        if item["patient"] != self.patient:
-            self.say(player_id, "REJECTED: wrong patient")
+        if item["patient"] != patient_id:
+            self.say(player_id, f"REJECTED: Package #{patient_id} only")
             return
         test = item["test"]
-        if test not in self.tasks:
+        if test not in patient["tasks"]:
             self.say(player_id, "REJECTED: report not ordered — use trash", 3.0)
             return
-        if test in self.package_reports:
+        if test in patient["package_reports"]:
             self.say(player_id, "REJECTED: duplicate report — use trash", 3.0)
             return
-        self.package_reports.append(test)
+        patient["package_reports"].append(test)
         player["item"] = None
-        if all(required in self.package_reports for required in self.tasks):
-            self.package_ready = True
-            self.say(player_id, "All reports packed!")
+        if all(required in patient["package_reports"] for required in patient["tasks"]):
+            patient["package_ready"] = True
+            patient["package_taken"] = False
+            self.say(player_id, f"Package #{patient_id} is ready!")
         else:
-            self.say(player_id, "Report added to package")
+            self.say(player_id, f"Report added to Package #{patient_id}")
 
     def update(self, dt: float) -> None:
         if not self.started or self.finished:
@@ -427,6 +526,16 @@ class GameState:
         self.remaining = max(0.0, self.remaining - dt)
         if self.remaining <= 0:
             self.finished = True
+            self._save_high_score()
+            return
+        expired: list[tuple[int, int]] = []
+        for index, patient in enumerate(self.patient_slots):
+            patient["remaining"] = max(0.0, patient["remaining"] - dt)
+            if patient["remaining"] <= 0:
+                expired.append((index, patient["patient"]))
+        for index, patient_id in expired:
+            self.score -= 40
+            self._replace_patient(index, f"Patient #{patient_id} timed out: -40")
         for test, station in self.stations.items():
             if station["phase"] != "processing":
                 continue
@@ -445,11 +554,21 @@ class GameState:
             players.append(copy)
         return {
             "players": players,
+            "patients": [
+                {
+                    **patient,
+                    "tasks": list(patient["tasks"]),
+                    "package_reports": list(patient["package_reports"]),
+                }
+                for patient in self.patient_slots
+            ],
             "patient": self.patient,
             "tasks": self.tasks,
             "completed": self.completed,
             "package_reports": self.package_reports,
             "package_ready": self.package_ready,
+            "score": self.score,
+            "high_score": max(self.high_score, self.score),
             "stations": self.stations,
             "remaining": self.remaining,
             "started": self.started,
@@ -472,27 +591,47 @@ def display_zone(rect: pygame.Rect) -> pygame.Rect:
 
 def round_view(state: dict[str, Any]) -> RoundView:
     """Adapt a host snapshot without changing simulation or wire format."""
-    types = {"sample": "extraction", "CBC": "cbc", "SMEAR": "microscope",
-             "COAG": "coagulation", "trash": "trash", "submit": "submit", "package": "package"}
-    labels = {"sample": ("Sample Extraction",), "CBC": ("CBC",),
-              "SMEAR": ("Blood Smear", "Microscope"), "COAG": ("Coagulation",),
-              "trash": ("Trash",), "submit": ("Submit",), "package": ("Package",)}
+    types = {"CBC": "cbc", "SMEAR": "microscope", "COAG": "coagulation",
+             "trash": "trash", "submit": "submit"}
+    labels = {"CBC": ("CBC",), "SMEAR": ("Blood Smear", "Microscope"),
+              "COAG": ("Coagulation",), "trash": ("Trash",), "submit": ("Submit",)}
     stations = []
     for key, zone in ZONES.items():
         rect = display_zone(zone)
-        machine = state["stations"].get(key, {})
+        machine: dict[str, Any] = state["stations"].get(key, {})
+        station_type = types.get(key, "")
+        station_label = labels.get(key, (key,))
+        package_complete = False
+        if key.startswith("sample_"):
+            slot_index = int(key.rsplit("_", 1)[1])
+            patient_id = state["patients"][slot_index]["patient"]
+            station_type = "extraction"
+            station_label = (f"Sample #{patient_id}",)
+        elif key.startswith("package_"):
+            slot_index = int(key.rsplit("_", 1)[1])
+            patient = state["patients"][slot_index]
+            station_type = "package"
+            station_label = (f"Package #{patient['patient']}",)
+            package_complete = patient["package_ready"]
         phase = machine.get("phase", "idle")
         stations.append(StationView(
-            key, types[key], labels[key], rect.x, rect.y, width=rect.width,
+            key, station_type, station_label, rect.x, rect.y, width=rect.width,
             height=rect.height, is_processing=phase == "processing",
             processing_progress=machine.get("elapsed", 0) / TEST_SECONDS[key] if key in TEST_SECONDS else 0,
-            is_complete=phase == "output" or (key == "package" and state["package_ready"])))
+            is_complete=phase == "output" or package_complete))
     players = tuple(PlayerView(str(index), *display_position(player["x"], player["y"]),
                                "sample" if player["item"] and player["item"]["kind"] == "sample" else None)
                     for index, player in enumerate(state["players"]))
-    tasks = tuple("Blood Smear" if test == "SMEAR" else TEST_LABEL[test] for test in state["tasks"])
-    return RoundView(state["remaining"], (PatientView(f"P-{state['patient']:03d}", tasks),),
-                     tuple(stations), players, ())
+    patients = tuple(
+        PatientView(
+            f"P-{patient['patient']:03d}",
+            tuple("Blood Smear" if test == "SMEAR" else TEST_LABEL[test] for test in patient["tasks"]),
+            patient["remaining"],
+        )
+        for patient in state["patients"]
+    )
+    return RoundView(state["remaining"], patients, tuple(stations), players, (),
+                     state["score"], state["high_score"])
 
 
 class Renderer:
@@ -508,13 +647,16 @@ class Renderer:
     def draw(self, state: dict[str, Any], local_player: int, status: str = "") -> None:
         if state["finished"]:
             self.ui.draw_result(self.screen, success=state["completed"] >= 3)
-            self.text(f"Patients completed: {state['completed']} / 3", (480, 390), center=True)
-            self.text("Esc: quit", (480, 425), center=True)
+            self.text(f"Final score: {state['score']}   Best: {state['high_score']}", (480, 390), center=True)
+            self.text(f"Patients completed: {state['completed']}", (480, 420), center=True)
+            self.text("Esc: quit", (480, 450), center=True)
         else:
             self.ui.draw_gameplay(self.screen, round_view(state))
-            self.text(f"Completed: {state['completed']} / 3", (365, 24))
-            self.text(f"Reports packed: {len(state['package_reports'])} / {len(state['tasks'])}", (365, 50))
-            self.text("Packed: " + (", ".join(state["package_reports"]) or "none"), (365, 76))
+            package_summary = "   ".join(
+                f"#{patient['patient']}: {len(patient['package_reports'])}/{len(patient['tasks'])}"
+                for patient in state["patients"]
+            )
+            self.text(f"Packages {package_summary}", (480, 121), center=True)
             for index, player in enumerate(state["players"]):
                 x, y = display_position(player["x"], player["y"])
                 self.text(f"P{index + 1}" + (" (YOU)" if index == local_player else ""), (x, y + 28), center=True)

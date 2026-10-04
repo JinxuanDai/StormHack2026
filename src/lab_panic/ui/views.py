@@ -11,6 +11,7 @@ from dataclasses import dataclass
 class PatientView:
     patient_id: str
     tasks: tuple[str, ...]
+    time_remaining: float = 45.0
 
 
 @dataclass(frozen=True)
@@ -49,3 +50,5 @@ class RoundView:
     stations: tuple[StationView, ...]
     players: tuple[PlayerView, ...]
     samples: tuple[SampleView, ...]
+    score: int = 0
+    high_score: int = 0

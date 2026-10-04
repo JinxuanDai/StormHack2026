@@ -73,7 +73,8 @@ not require changes to A/B's state models.
 
 Both players remain Phase 1 circle placeholders. Station label plates, borders,
 shadows, HUD, menus and results use Pygame primitives and its built-in font.
-Four mock cards and all seven areas fit the fixed 960 × 640 scene. Sample
+Two independently timed patient cards and the duplicated sample/package areas
+fit the fixed 960 × 640 scene. Sample
 carrying and machine states are static examples, with no movement or rules.
 
 The team still needs to document original asset sources/licenses; no metadata

@@ -28,13 +28,19 @@ def draw_hud(surface, fonts: theme.Fonts, snapshot: RoundView) -> None:
     seconds = max(0, int(snapshot.time_remaining))
     theme.text(surface, fonts.small, "TIME", (20, 29), theme.MUTED)
     theme.text(surface, fonts.timer, f"{seconds // 60}:{seconds % 60:02d}", (16, 52), theme.TEAL)
-    for index, patient in enumerate(snapshot.patients[:4]):
+    for index, patient in enumerate(snapshot.patients[:2]):
         rect = pygame.Rect(150 + index * 200, 12, 190, 96)
         pygame.draw.rect(surface, theme.BACKGROUND, rect, border_radius=10)
         pygame.draw.rect(surface, theme.BORDER, rect, width=1, border_radius=10)
         theme.text(surface, fonts.heading, patient.patient_id, (rect.x + 14, rect.y + 10))
+        patient_seconds = max(0, math.ceil(patient.time_remaining))
+        timer_color = theme.RED if patient_seconds <= 10 else theme.TEAL
+        theme.text(surface, fonts.heading, f"{patient_seconds}s", (rect.right - 48, rect.y + 10), timer_color)
         for row, task in enumerate(patient.tasks):
             theme.text(surface, fonts.small, task, (rect.x + 14, rect.y + 36 + row * 18), theme.MUTED)
+    theme.text(surface, fonts.small, "SCORE", (760, 27), theme.MUTED)
+    theme.text(surface, fonts.heading, str(snapshot.score), (760, 49), theme.TEAL)
+    theme.text(surface, fonts.small, f"BEST {snapshot.high_score}", (760, 78), theme.MUTED)
 
 
 def draw_message(surface, fonts: theme.Fonts, message: str, color=theme.INK) -> None:
