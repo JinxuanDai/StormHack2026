@@ -20,24 +20,22 @@ from .views import PatientView, PlayerView, RoundView, SampleView, StationView
 MOCK_ROUND = RoundView(
     time_remaining=180,
     patients=(
-        PatientView("P-001", ("CBC", "Blood Smear"), 9),
-        PatientView("P-002", ("Coagulation",), 33),
+        PatientView("P-001", ("CBC", "Blood Smear")),
+        PatientView("P-002", ("Coagulation",)),
+        PatientView("P-003", ("CBC", "Coagulation")),
+        PatientView("P-004", ("CBC", "Blood Smear", "Coagulation")),
     ),
     stations=(
-        StationView("sample_0", "extraction", ("Sample #1",), 62, 150, width=132),
-        StationView("sample_1", "extraction", ("Sample #2",), 214, 150, width=132),
+        StationView("extraction", "extraction", ("Sample Extraction",), 184, 150, width=190),
         StationView("cbc", "cbc", ("CBC",), 586, 150, width=190, is_processing=True, processing_progress=0.58),
         StationView("trash", "trash", ("Trash",), 36, 304, width=134),
         StationView("submit", "submit", ("Submit",), 790, 304, width=134),
-        StationView("package_0", "package", ("Package #1",), 330, 304, width=150),
-        StationView("package_1", "package", ("Package #2",), 500, 304, width=150),
+        StationView("package", "package", ("Package",), 385, 304, width=190),
         StationView("smear", "microscope", ("Blood Smear", "+ Microscope"), 184, 458, width=190),
         StationView("coagulation", "coagulation", ("Coagulation Test",), 586, 458, width=190, is_complete=True),
     ),
     players=(PlayerView("one", 318, 354, "sample-one"), PlayerView("two", 655, 399)),
     samples=(SampleView("sample-two", 451, 374),),
-    score=180,
-    high_score=320,
 )
 
 SCREENS = ("menu", "gameplay", "success", "failure")
