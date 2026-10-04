@@ -26,7 +26,7 @@ introduce or change any processing rules.
 
 ## Modules and integration
 
-- `theme.py`: colors, font sizes, fixed display dimensions and text helper.
+- `theme.py`: colors, licensed pixel font, clipped panels, fixed dimensions and text helper.
 - `assets.py`: asset root, centralized `SPRITES` crop registry and `AssetStore`.
 - `views.py`: frozen presentation snapshots; these are not gameplay models.
 - `renderer.py`: `Renderer.draw_gameplay(surface, snapshot)`, menu and results.
@@ -44,19 +44,24 @@ Initialize Pygame before creating a renderer and reuse it between frames.
 
 All crop rectangles are defined in `assets.py`, in source pixels `(x, y, width,
 height)`. Six original sheets are used: `1.png`, `3.png`, `4.png`, `5.png`,
-`6.png`, and `7.png`. No original images are modified or copied into the repo.
+`6.png`, and `7.png`. No original laboratory images are modified or copied.
 
 | Named crop | Sheet | Source rectangle | Display role |
 | --- | --- | --- | --- |
-| `sample_extraction` | `3.png` | `(481, 308, 95, 75)` | Bench with tube rack and instrument |
-| `cbc_machine` | `7.png` | `(98, 298, 92, 84)` | Closed rectangular laboratory machine |
+| `sample_bench` | `3.png` | `(144, 160, 96, 80)` | Reflective drawer bench used beneath extraction items |
+| `sample_rack` | `3.png` | `(576, 672, 48, 50)` | Wooden rack with red sample tubes |
+| `blood_smear_slide` | `6.png` | `(435, 110, 43, 21)` | Tightly cropped blood-bearing slide layered onto the smear bench |
+| `cbc_machine` | `7.png` | `(485, 674, 86, 93)` | Mobile analyzer cart shown in the layout |
+| `lab_printer` | `4.png` | `(297, 399, 71, 81)` | Rear-wall printer beside the CBC analyzer |
 | `microscope` | `4.png` | `(576, 577, 96, 95)` | Microscope on a bench |
 | `coagulation_machine` | `4.png` | `(401, 578, 63, 94)` | Open-lid round laboratory machine |
-| `package_table` | `3.png` | `(0, 304, 96, 80)` | Clear workbench |
+| `package_table` | `3.png` | `(672, 0, 96, 48)` | Wide workbench from the supplied layout |
 | `trash_bin` | `5.png` | `(677, 328, 39, 55)` | Yellow biohazard bin |
 | `submit_terminal` | `4.png` | `(180, 389, 108, 115)` | Computer workstation with chair |
 | `sample_tube` | `6.png` | `(542, 3, 21, 93)` | Red-filled tube, carried or on bench |
 | `floor_tile` | `1.png` | `(0, 0, 48, 48)` | Repeated neutral laboratory tile |
+| `trash_blue` … `trash_biohazard` | `5.png` | six bottom-row 48 × 80 crops | Recycling/biohazard cluster |
+| `package_box` | `6.png` | `(336, 724, 48, 44)` | Small box on each package table |
 
 Crop boundaries were visually inspected. The CBC and Coagulation assignments
 are fictional visual stand-ins: the round machine resembles a centrifuge, not
@@ -72,9 +77,12 @@ to `AssetStore`. Keep station type mapping in `STATION_SPRITES`; rendering does
 not require changes to A/B's state models.
 
 Both players remain Phase 1 circle placeholders. Station label plates, borders,
-shadows, HUD, menus and results use Pygame primitives and its built-in font.
-Four mock cards and all seven areas fit the fixed 960 × 640 scene. Sample
-carrying and machine states are static examples, with no movement or rules.
+shadows, HUD, menus and results use Pygame primitives plus the bundled Press
+Start 2P font. Its SIL OFL license and upstream changelog live in
+`assets/fonts/`. Four mock cards and all seven areas fit the fixed 960 × 640
+scene. Sample carrying and machine states are static examples, with no movement
+or rules.
 
-The team still needs to document original asset sources/licenses; no metadata
-has been invented. There are no new dependencies, audio assets or playback.
+The team still needs to document original laboratory asset sources/licenses;
+no metadata has been invented. There are no new Python dependencies, audio
+assets or playback.

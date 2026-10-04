@@ -23,20 +23,30 @@ class SpriteRegion:
 
 # All source coordinates live here. No PNGs are modified or exported.
 SPRITES: dict[str, SpriteRegion] = {
-    "sample_extraction": SpriteRegion("3.png", (481, 308, 95, 75)),
-    "cbc_machine": SpriteRegion("7.png", (98, 298, 92, 84)),
+    "sample_bench": SpriteRegion("3.png", (144, 160, 96, 80)),
+    "sample_rack": SpriteRegion("3.png", (576, 672, 48, 50)),
+    "blood_smear_slide": SpriteRegion("6.png", (435, 110, 43, 21)),
+    "cbc_machine": SpriteRegion("7.png", (485, 674, 86, 93)),
+    "lab_printer": SpriteRegion("4.png", (297, 399, 71, 81)),
     "microscope": SpriteRegion("4.png", (576, 577, 96, 95)),
     "coagulation_machine": SpriteRegion("4.png", (401, 578, 63, 94)),
-    "package_table": SpriteRegion("3.png", (0, 304, 96, 80)),
+    "package_table": SpriteRegion("3.png", (672, 0, 96, 48)),
     "trash_bin": SpriteRegion("5.png", (677, 328, 39, 55)),
     "submit_terminal": SpriteRegion("4.png", (180, 389, 108, 115)),
     "sample_tube": SpriteRegion("6.png", (542, 3, 21, 93)),
     "floor_tile": SpriteRegion("1.png", (0, 0, 48, 48)),
+    "trash_blue": SpriteRegion("5.png", (480, 688, 48, 80)),
+    "trash_green": SpriteRegion("5.png", (528, 688, 48, 80)),
+    "trash_red": SpriteRegion("5.png", (576, 688, 48, 80)),
+    "trash_dark": SpriteRegion("5.png", (624, 688, 48, 80)),
+    "trash_yellow": SpriteRegion("5.png", (672, 688, 48, 80)),
+    "trash_biohazard": SpriteRegion("5.png", (720, 688, 48, 80)),
+    "package_box": SpriteRegion("6.png", (336, 724, 48, 44)),
 }
 
 # Preserve the Phase 1 snapshot station types without involving gameplay models.
 STATION_SPRITES = {
-    "extraction": "sample_extraction",
+    "extraction": "sample_bench",
     "cbc": "cbc_machine",
     "microscope": "microscope",
     "coagulation": "coagulation_machine",

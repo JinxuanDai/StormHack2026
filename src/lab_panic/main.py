@@ -639,6 +639,10 @@ def round_view(state: dict[str, Any]) -> RoundView:
             f"P-{patient['patient']:03d}",
             tuple("Blood Smear" if test == "SMEAR" else TEST_LABEL[test] for test in patient["tasks"]),
             patient["remaining"],
+            tuple(
+                "Blood Smear" if test == "SMEAR" else TEST_LABEL[test]
+                for test in patient["package_reports"]
+            ),
         )
         for patient in state["patients"]
     )
@@ -664,32 +668,49 @@ class Renderer:
             self.text("Esc: quit", (480, 450), center=True)
         else:
             self.ui.draw_gameplay(self.screen, round_view(state))
-            package_summary = "   ".join(
-                f"#{patient['patient']}: {len(patient['package_reports'])}/{len(patient['tasks'])}"
-                for patient in state["patients"]
-            )
-            self.text(f"Packages {package_summary}", (480, 121), center=True)
             for index, player in enumerate(state["players"]):
                 x, y = display_position(player["x"], player["y"])
-                self.text(f"P{index + 1}" + (" (YOU)" if index == local_player else ""), (x, y + 28), center=True)
+                self.text(
+                    f"P{index + 1}" + (" (YOU)" if index == local_player else ""),
+                    (x, y + 28),
+                    theme.DARK_INK,
+                    center=True,
+                )
                 item = player["item"]
                 if item:
                     label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
-                    self.text(label, (x, y - 40), center=True)
+                    self.text(label, (x, y - 40), theme.DARK_INK, center=True)
                     if item["kind"] != "sample":
                         color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
                         rect = pygame.Rect(x + 16, y - 12, 26, 20)
                         pygame.draw.rect(self.screen, color, rect, border_radius=3)
                         pygame.draw.rect(self.screen, theme.INK, rect, 1, border_radius=3)
             message = state["players"][local_player]["message"]
-            self.text(status or message or "Arrow keys: move   Space: interact   Esc: quit", (480, 624), theme.RED if status or message else theme.MUTED, center=True)
+            self.text(
+                status or message or "Arrow keys: move   Space: interact   Esc: quit",
+                (480, 624),
+                theme.RED if status or message else theme.DARK_INK,
+                center=True,
+            )
             if not state.get("connected", False):
                 shade = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
                 shade.fill((230, 233, 236, 225))
                 self.screen.blit(shade, (0, 0))
-                theme.text(self.screen, self.ui.fonts.heading, "WAITING FOR PLAYER 2", (480, 290), center=True)
-                self.text(f"Host IP: {local_ip()}   Port: {PORT}", (480, 335), center=True)
-                self.text("Esc: quit", (480, 375), center=True)
+                theme.text(
+                    self.screen,
+                    self.ui.fonts.heading,
+                    "WAITING FOR PLAYER 2",
+                    (480, 290),
+                    theme.DARK_INK,
+                    center=True,
+                )
+                self.text(
+                    f"Host IP: {local_ip()}   Port: {PORT}",
+                    (480, 335),
+                    theme.DARK_INK,
+                    center=True,
+                )
+                self.text("Esc: quit", (480, 375), theme.DARK_INK, center=True)
         if state["finished"] and status:
             self.text(status, (480, 624), theme.RED, center=True)
 

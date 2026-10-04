@@ -20,6 +20,8 @@ class UIIntegrationTests(unittest.TestCase):
         game.stations["CBC"].update(phase="processing", elapsed=TEST_SECONDS["CBC"] / 2)
         game.stations["SMEAR"].update(phase="output")
         game.package_ready = True
+        completed_task = game.patient_slots[0]["tasks"][0]
+        game.patient_slots[0]["package_reports"] = [completed_task]
         game.players[0]["item"] = {"kind": "sample", "patient": game.patient}
         game.players[1]["item"] = {"kind": "report", "test": "CBC", "patient": game.patient}
         state = game.snapshot(True)
@@ -32,6 +34,11 @@ class UIIntegrationTests(unittest.TestCase):
         self.assertTrue(stations["package_0"].is_complete)
         self.assertFalse(stations["package_1"].is_complete)
         self.assertEqual(len(view.patients), 2)
+        completed_label = "Blood Smear" if completed_task == "SMEAR" else {
+            "CBC": "CBC",
+            "COAG": "Coagulation",
+        }[completed_task]
+        self.assertIn(completed_label, view.patients[0].completed_tasks)
         self.assertIsNotNone(view.players[0].held_item)
         self.assertIsNone(view.players[1].held_item)
         self.assertEqual(state, original)
@@ -44,3 +51,9 @@ class UIIntegrationTests(unittest.TestCase):
             rect = pygame.Rect(station.x, station.y, station.width, station.height)
             self.assertEqual(rect, display_zone(ZONES[station.station_id]))
             self.assertTrue(room.contains(rect))
+
+    def test_players_spawn_outside_station_collision_zones(self):
+        game = GameState()
+        solids = game._solids()
+        for player in game.players:
+            self.assertFalse(any(game.player_rect(player).colliderect(solid) for solid in solids))

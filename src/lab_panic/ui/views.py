@@ -12,6 +12,7 @@ class PatientView:
     patient_id: str
     tasks: tuple[str, ...]
     time_remaining: float = 45.0
+    completed_tasks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
