@@ -679,11 +679,14 @@ class Renderer:
         result = None
         if state["finished"]:
             success = state["completed"] >= 3
-            self.ui.draw_result(self.screen, success=success)
+            self.ui.draw_result(
+                self.screen,
+                success=success,
+                score=state["score"],
+                high_score=state["high_score"],
+                completed=state["completed"],
+            )
             result = "success" if success else "failure"
-            self.text(f"Final score: {state['score']}   Best: {state['high_score']}", (480, 390), center=True)
-            self.text(f"Patients completed: {state['completed']}", (480, 420), center=True)
-            self.text("Esc: quit", (480, 450), center=True)
         else:
             self.ui.draw_gameplay(self.screen, round_view(state))
             for index, player in enumerate(state["players"]):
