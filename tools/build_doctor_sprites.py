@@ -22,6 +22,30 @@ FRAME_ROWS = 4
 CELL_SIZE = (40, 64)
 SHEET_SIZE = (CELL_SIZE[0] * FRAME_COLUMNS, CELL_SIZE[1] * FRAME_ROWS)
 ALPHA_THRESHOLD = 48
+BLUSH = (224, 145, 164)
+
+# One shared, deliberately small palette keeps both doctors visually related
+# and prevents thousands of near-identical resampling colors from appearing at
+# the eyes, hairline, coat edges and shoes. Transparent pixels are preserved
+# separately and are not part of this palette.
+CLEAN_PALETTE = (
+    (38, 27, 24),    # outline, eyes and eyebrows
+    (58, 35, 29),    # deepest hair / shoe shade
+    (80, 50, 37),    # dark brown
+    (108, 68, 49),   # middle brown
+    (142, 94, 67),   # brown highlight
+    (224, 174, 150), # skin shadow
+    (246, 211, 193), # skin
+    BLUSH,            # restrained cheek color
+    (252, 252, 249), # lab coat
+    (207, 211, 211), # lab coat shadow
+    (64, 79, 145),   # dark blue shirt
+    (79, 98, 188),   # blue shirt
+    (39, 40, 47),    # dark trousers
+    (60, 64, 74),    # trouser highlight
+    (102, 66, 49),   # shoes
+    (167, 111, 80),  # shoe highlight
+)
 
 
 def source_rows(sheet: pygame.Surface) -> list[tuple[int, int]]:
@@ -82,6 +106,41 @@ def harden_alpha(surface: pygame.Surface) -> None:
                 surface.set_at((x, y), color)
 
 
+def clean_palette(surface: pygame.Surface) -> None:
+    """Map every visible pixel to one crisp, shared character color."""
+    cache: dict[tuple[int, int, int], tuple[int, int, int, int]] = {}
+    for y in range(surface.get_height()):
+        for x in range(surface.get_width()):
+            color = surface.get_at((x, y))
+            if not color.a:
+                continue
+            source = (color.r, color.g, color.b)
+            replacement = cache.get(source)
+            if replacement is None:
+                # Reserve pink for pixels that are already visibly pink. This
+                # prevents warm shoe and skin highlights from becoming blush.
+                is_pink = (
+                    source[0] > 150
+                    and source[0] - source[1] > 25
+                    and source[2] >= source[1] * 0.9
+                )
+                if is_pink:
+                    nearest = BLUSH
+                else:
+                    # Green carries the most perceived brightness, blue the least.
+                    nearest = min(
+                        (target for target in CLEAN_PALETTE if target != BLUSH),
+                        key=lambda target: (
+                            3 * (source[0] - target[0]) ** 2
+                            + 4 * (source[1] - target[1]) ** 2
+                            + 2 * (source[2] - target[2]) ** 2
+                        ),
+                    )
+                replacement = (*nearest, 255)
+                cache[source] = replacement
+            surface.set_at((x, y), replacement)
+
+
 def convert_design(path: Path) -> pygame.Surface:
     design = pygame.image.load(str(path))
     rows = source_rows(design)
@@ -105,6 +164,7 @@ def convert_design(path: Path) -> pygame.Surface:
         )
         frame = pygame.transform.scale(frame, scaled_size)
         harden_alpha(frame)
+        clean_palette(frame)
         # These two approved male poses face opposite to their assigned row.
         # Correct the source poses once so every walk cycle keeps its facing.
         if path.name == "doctor_male_design.png" and index in (5, 6):
