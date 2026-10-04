@@ -15,6 +15,7 @@ from . import theme
 LABORATORY_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "laboratory"
 CHARACTER_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "characters"
 CHARACTER_FILES = ("doctor_female.png", "doctor_male.png")
+MENU_CHARACTER_FILES = ("menu_doctor_female.png", "menu_doctor_male.png")
 CHARACTER_CELL = (40, 64)
 CHARACTER_SCALE = 2
 CHARACTER_DISPLAY_SIZE = tuple(dimension * CHARACTER_SCALE for dimension in CHARACTER_CELL)
@@ -73,6 +74,7 @@ class AssetStore:
         self._sheets: dict[str, pygame.Surface | None] = {}
         self._sprites: dict[tuple[str, tuple[int, int]], pygame.Surface] = {}
         self._character_sheets: dict[str, pygame.Surface | None] = {}
+        self._menu_characters: dict[tuple[int, tuple[int, int]], pygame.Surface] = {}
         self._character_frames: dict[
             tuple[int, str, int, tuple[int, int]], pygame.Surface
         ] = {}
@@ -106,6 +108,35 @@ class AssetStore:
                 result = pygame.transform.scale(sheet.subsurface(source), size)
             self._character_frames[key] = result
         return self._character_frames[key]
+
+    def menu_character(
+        self,
+        player_index: int,
+        max_size: tuple[int, int] = (110, 170),
+    ) -> pygame.Surface:
+        """Return the approved front portrait used only by the main menu."""
+        key = (player_index % len(MENU_CHARACTER_FILES), max_size)
+        if key not in self._menu_characters:
+            path = self.character_root / MENU_CHARACTER_FILES[key[0]]
+            try:
+                image = pygame.image.load(str(path))
+                if pygame.display.get_surface() is not None:
+                    image = image.convert_alpha()
+                factor = min(
+                    max_size[0] / image.get_width(),
+                    max_size[1] / image.get_height(),
+                )
+                result = pygame.transform.scale(
+                    image,
+                    (
+                        max(1, round(image.get_width() * factor)),
+                        max(1, round(image.get_height() * factor)),
+                    ),
+                )
+            except (OSError, pygame.error):
+                result = self._player_placeholder(max_size, player_index)
+            self._menu_characters[key] = result
+        return self._menu_characters[key]
 
     def sprite(self, name: str, size: tuple[int, int]) -> pygame.Surface:
         """Return an aspect-preserving crop centered in size, or a placeholder.

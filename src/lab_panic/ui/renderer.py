@@ -253,10 +253,8 @@ class Renderer:
         surface.blit(pygame.transform.flip(bench, True, False), (824, 530))
 
     def _menu_doctor(self, surface: pygame.Surface, player_index: int, center_x: int) -> None:
-        sprite = self.assets.character_frame(player_index, "down", 1, (92, 148))
+        sprite = self.assets.menu_character(player_index, (110, 170))
         rect = sprite.get_rect(midbottom=(center_x, 493))
-        # This muted grounding shadow is intentionally not a selection halo.
-        pygame.draw.ellipse(surface, (123, 159, 166), (rect.centerx - 35, 484, 70, 10))
         surface.blit(sprite, rect)
 
     def draw_menu(self, surface, selected: int = 0) -> None:

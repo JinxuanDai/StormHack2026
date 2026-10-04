@@ -4,7 +4,7 @@ import unittest
 
 import pygame
 
-from lab_panic.ui.assets import CHARACTER_ROOT
+from lab_panic.ui.assets import AssetStore, CHARACTER_ROOT
 from tools.build_doctor_sprites import CLEAN_PALETTE, source_rows
 
 
@@ -51,3 +51,15 @@ class CharacterSheetTests(unittest.TestCase):
             with self.subTest(character=name):
                 self.assertLessEqual(visible_colors, allowed)
                 self.assertEqual(alpha_values, {0, 255})
+
+    def test_menu_uses_the_approved_front_portraits(self):
+        expected_sources = ((232, 380), (211, 400))
+        store = AssetStore()
+        for player_index, expected_size in enumerate(expected_sources):
+            filename = "menu_doctor_female.png" if player_index == 0 else "menu_doctor_male.png"
+            source = pygame.image.load(str(CHARACTER_ROOT / filename))
+            portrait = store.menu_character(player_index)
+            with self.subTest(character=filename):
+                self.assertEqual(source.get_size(), expected_size)
+                self.assertLessEqual(portrait.get_width(), 110)
+                self.assertEqual(portrait.get_height(), 170)

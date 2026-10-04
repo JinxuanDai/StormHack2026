@@ -8,6 +8,11 @@ sheets. Each sheet contains three 40 × 64 animation frames in each row:
 3. right
 4. up/back
 
+`menu_doctor_female.png` and `menu_doctor_male.png` are the approved static
+front portraits used only on the opening menu. They are loaded directly and
+aspect-scaled without palette conversion; gameplay continues to use the
+directional sheets above.
+
 The source sheets are characters `010.png` and `003.png` from **2D Top-Down
 Pixel Art Characters** by Jephed / Game Between The Lines:
 
