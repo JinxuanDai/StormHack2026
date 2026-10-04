@@ -17,6 +17,12 @@ from typing import Any
 
 import pygame
 
+# Direct file execution (including VS Code's current-file debugger) does not
+# supply package context. Resolve it from this file rather than the working dir.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "lab_panic"
+
 from .ui import theme
 from .ui.renderer import Renderer as UIRenderer
 from .ui.views import PatientView, PlayerView, RoundView, StationView
