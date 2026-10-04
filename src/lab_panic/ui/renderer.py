@@ -242,7 +242,7 @@ class Renderer:
             ("lab_printer", (247, 139, 89, 102)),
             ("microscope", (624, 143, 100, 98)),
             ("coagulation_machine", (732, 139, 78, 102)),
-            ("submit_terminal", (816, 132, 126, 109)),
+            ("submit_terminal", (816, 140, 126, 109)),
         )
         for name, rect in machines:
             surface.blit(self.assets.sprite(name, rect[2:]), rect[:2])
