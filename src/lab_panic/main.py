@@ -855,6 +855,11 @@ def main_menu(screen: pygame.Surface, display: GameDisplay) -> tuple[str, str] |
         for event in display.events():
             if event.type == pygame.QUIT:
                 return None
+            if event.type == pygame.MOUSEMOTION:
+                for index, rect in enumerate(renderer.menu_buttons()):
+                    if rect.inflate(16, 8).collidepoint(event.pos):
+                        selected = index
+                        break
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return None
@@ -876,7 +881,7 @@ def main_menu(screen: pygame.Surface, display: GameDisplay) -> tuple[str, str] |
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 active = ip_box.collidepoint(event.pos)
                 for index, rect in enumerate(renderer.menu_buttons()):
-                    if rect.collidepoint(event.pos):
+                    if rect.inflate(16, 8).collidepoint(event.pos):
                         selected = index
                         if index == 2:
                             return None
@@ -886,8 +891,22 @@ def main_menu(screen: pygame.Surface, display: GameDisplay) -> tuple[str, str] |
         pygame.draw.rect(screen, theme.PANEL, ip_box, border_radius=6)
         pygame.draw.rect(screen, theme.TEAL if active else theme.BORDER, ip_box, 2, border_radius=6)
         theme.text(screen, renderer.fonts.small, ip_text or "Host IP address", (ip_box.x + 12, ip_box.y + 12))
-        theme.text(screen, renderer.fonts.small, "Join: enter host IP | F11: fullscreen", (480, 575), center=True)
-        theme.text(screen, renderer.fonts.small, f"Your IP: {host_ip}   Port: {PORT}", (480, 606), center=True)
+        theme.text(
+            screen,
+            renderer.fonts.small,
+            "Join: enter host IP | F11: fullscreen",
+            (480, 575),
+            theme.DARK_INK,
+            center=True,
+        )
+        theme.text(
+            screen,
+            renderer.fonts.small,
+            f"Your IP: {host_ip}   Port: {PORT}",
+            (480, 606),
+            theme.DARK_INK,
+            center=True,
+        )
         display.present()
 
 
