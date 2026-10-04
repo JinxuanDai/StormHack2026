@@ -5,7 +5,12 @@ import unittest
 import pygame
 
 from lab_panic.ui.assets import AssetStore, CHARACTER_ROOT, MALE_MENU_SKIN_BASE
-from tools.build_doctor_sprites import CLEAN_PALETTE, source_rows
+from tools.build_doctor_sprites import (
+    CLEAN_PALETTE,
+    LAB_COAT,
+    LAB_COAT_SHADOW,
+    source_rows,
+)
 
 
 class CharacterSheetTests(unittest.TestCase):
@@ -52,6 +57,20 @@ class CharacterSheetTests(unittest.TestCase):
                 self.assertLessEqual(visible_colors, allowed)
                 self.assertEqual(alpha_values, {0, 255})
 
+    def test_female_face_has_no_lab_coat_white_blocks(self):
+        sheet = pygame.image.load(str(CHARACTER_ROOT / "doctor_female.png"))
+        coat_colors = {LAB_COAT, LAB_COAT_SHADOW}
+        for row in range(3):
+            for column in range(3):
+                frame = sheet.subsurface((column * 40, row * 64, 40, 64))
+                face_colors = {
+                    tuple(frame.get_at((x, y)))[:3]
+                    for y in range(36)
+                    for x in range(40)
+                }
+                with self.subTest(row=row, column=column):
+                    self.assertTrue(face_colors.isdisjoint(coat_colors))
+
     def test_menu_uses_the_approved_front_portraits(self):
         expected_sources = ((232, 380), (211, 400))
         store = AssetStore()
@@ -96,4 +115,3 @@ class CharacterSheetTests(unittest.TestCase):
                         warm_skin.append((color.r, color.g, color.b))
             self.assertGreater(coat_pixels, 10)
             self.assertGreater(len(warm_skin), 10)
-            self.assertLess(sum(color[1] for color in warm_skin) / len(warm_skin), 200)

@@ -23,6 +23,10 @@ CELL_SIZE = (40, 64)
 SHEET_SIZE = (CELL_SIZE[0] * FRAME_COLUMNS, CELL_SIZE[1] * FRAME_ROWS)
 ALPHA_THRESHOLD = 48
 BLUSH = (224, 145, 164)
+SKIN_SHADOW = (224, 174, 150)
+SKIN = (246, 211, 193)
+LAB_COAT = (252, 252, 249)
+LAB_COAT_SHADOW = (207, 211, 211)
 
 # One shared, deliberately small palette keeps both doctors visually related
 # and prevents thousands of near-identical resampling colors from appearing at
@@ -34,11 +38,11 @@ CLEAN_PALETTE = (
     (80, 50, 37),    # dark brown
     (108, 68, 49),   # middle brown
     (142, 94, 67),   # brown highlight
-    (224, 174, 150), # skin shadow
-    (246, 211, 193), # skin
+    SKIN_SHADOW,      # skin shadow
+    SKIN,             # skin
     BLUSH,            # restrained cheek color
-    (252, 252, 249), # lab coat
-    (207, 211, 211), # lab coat shadow
+    LAB_COAT,         # lab coat
+    LAB_COAT_SHADOW,  # lab coat shadow
     (64, 79, 145),   # dark blue shirt
     (79, 98, 188),   # blue shirt
     (39, 40, 47),    # dark trousers
@@ -106,7 +110,7 @@ def harden_alpha(surface: pygame.Surface) -> None:
                 surface.set_at((x, y), color)
 
 
-def clean_palette(surface: pygame.Surface) -> None:
+def clean_palette(surface: pygame.Surface, *, protect_skin: bool = False) -> None:
     """Map every visible pixel to one crisp, shared character color."""
     cache: dict[tuple[int, int, int], tuple[int, int, int, int]] = {}
     for y in range(surface.get_height()):
@@ -124,7 +128,20 @@ def clean_palette(surface: pygame.Surface) -> None:
                     and source[0] - source[1] > 25
                     and source[2] >= source[1] * 0.9
                 )
-                if is_pink:
+                is_skin = (
+                    source[0] > 170
+                    and source[0] - source[1] > 8
+                    and source[1] - source[2] > 5
+                )
+                if protect_skin and is_skin:
+                    nearest = min(
+                        (SKIN_SHADOW, SKIN),
+                        key=lambda target: sum(
+                            (source[index] - target[index]) ** 2
+                            for index in range(3)
+                        ),
+                    )
+                elif is_pink:
                     nearest = BLUSH
                 else:
                     # Green carries the most perceived brightness, blue the least.
@@ -139,6 +156,41 @@ def clean_palette(surface: pygame.Surface) -> None:
                 replacement = (*nearest, 255)
                 cache[source] = replacement
             surface.set_at((x, y), replacement)
+
+
+def repair_female_face_highlights(sheet: pygame.Surface) -> None:
+    """Turn isolated coat-white components in the head area back into skin."""
+    coat_colors = {LAB_COAT, LAB_COAT_SHADOW}
+    for row in range(3):  # The back-facing row has no visible skin.
+        for column in range(FRAME_COLUMNS):
+            frame = sheet.subsurface(
+                (column * CELL_SIZE[0], row * CELL_SIZE[1], *CELL_SIZE)
+            )
+            remaining = {
+                (x, y)
+                for y in range(CELL_SIZE[1])
+                for x in range(CELL_SIZE[0])
+                if tuple(frame.get_at((x, y)))[:3] in coat_colors
+            }
+            while remaining:
+                component = [remaining.pop()]
+                pending = list(component)
+                while pending:
+                    x, y = pending.pop()
+                    for neighbor in ((x - 1, y), (x + 1, y),
+                                     (x, y - 1), (x, y + 1)):
+                        if neighbor in remaining:
+                            remaining.remove(neighbor)
+                            component.append(neighbor)
+                            pending.append(neighbor)
+                # In these normalized 40x64 cells, the laboratory coat starts
+                # at y=36. White components entirely above it are highlights
+                # from the face source art, not clothing.
+                if max(y for _, y in component) < 36:
+                    for x, y in component:
+                        color = frame.get_at((x, y))
+                        replacement = SKIN if tuple(color)[:3] == LAB_COAT else SKIN_SHADOW
+                        frame.set_at((x, y), (*replacement, color.a))
 
 
 def convert_design(path: Path) -> pygame.Surface:
@@ -164,7 +216,10 @@ def convert_design(path: Path) -> pygame.Surface:
         )
         frame = pygame.transform.scale(frame, scaled_size)
         harden_alpha(frame)
-        clean_palette(frame)
+        clean_palette(
+            frame,
+            protect_skin=path.name == "doctor_female_design.png",
+        )
         # These two approved male poses face opposite to their assigned row.
         # Correct the source poses once so every walk cycle keeps its facing.
         if path.name == "doctor_male_design.png" and index in (5, 6):
@@ -176,6 +231,8 @@ def convert_design(path: Path) -> pygame.Surface:
             )
         )
         output.blit(frame, destination)
+    if path.name == "doctor_female_design.png":
+        repair_female_face_highlights(output)
     return output
 
 
