@@ -4,6 +4,7 @@ import copy
 import unittest
 
 from lab_panic.main import GameState, TEST_SECONDS, ZONES, compatible_snapshot, display_zone, round_view
+from lab_panic.ui.assets import AssetStore
 from lab_panic.ui import theme
 
 
@@ -57,3 +58,12 @@ class UIIntegrationTests(unittest.TestCase):
         solids = game._solids()
         for player in game.players:
             self.assertFalse(any(game.player_rect(player).colliderect(solid) for solid in solids))
+
+    def test_both_doctors_have_four_direction_animation_frames(self):
+        assets = AssetStore()
+        for player_index in (0, 1):
+            for direction in ("down", "left", "right", "up"):
+                for frame_index in range(3):
+                    frame = assets.character_frame(player_index, direction, frame_index)
+                    self.assertEqual(frame.get_size(), (40, 64))
+                    self.assertGreater(frame.get_bounding_rect().width, 0)

@@ -672,14 +672,14 @@ class Renderer:
                 x, y = display_position(player["x"], player["y"])
                 self.text(
                     f"P{index + 1}" + (" (YOU)" if index == local_player else ""),
-                    (x, y + 28),
+                    (x, y + 36),
                     theme.DARK_INK,
                     center=True,
                 )
                 item = player["item"]
                 if item:
                     label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
-                    self.text(label, (x, y - 40), theme.DARK_INK, center=True)
+                    self.text(label, (x, y - 54), theme.DARK_INK, center=True)
                     if item["kind"] != "sample":
                         color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
                         rect = pygame.Rect(x + 16, y - 12, 26, 20)

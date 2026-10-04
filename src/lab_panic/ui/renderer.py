@@ -11,6 +11,9 @@ class Renderer:
     def __init__(self, assets: AssetStore | None = None) -> None:
         self.assets = assets if assets is not None else AssetStore()
         self.fonts = theme.Fonts()
+        self._player_positions: dict[str, tuple[int, int]] = {}
+        self._player_facing: dict[str, str] = {}
+        self._player_motion_until: dict[str, int] = {}
 
     def draw_gameplay(self, surface: pygame.Surface, snapshot: RoundView) -> None:
         surface.fill(theme.BACKGROUND)
@@ -20,14 +23,30 @@ class Renderer:
         for sample in snapshot.samples:
             self._sample(surface, sample.x, sample.y)
         for index, player in enumerate(snapshot.players):
-            color = theme.PLAYER_COLORS[index % len(theme.PLAYER_COLORS)]
-            pygame.draw.circle(surface, theme.DARK_INK, (player.x, player.y), 23)
-            pygame.draw.circle(surface, color, (player.x, player.y), 20)
-            pygame.draw.rect(surface, theme.INK, (player.x - 10, player.y - 8, 6, 6))
-            pygame.draw.rect(surface, theme.INK, (player.x + 4, player.y - 8, 6, 6))
+            self._player(surface, player, index)
             if player.held_item is not None:
                 self._sample(surface, player.x + 22, player.y + 5)
         hud.draw_hud(surface, self.fonts, snapshot)
+
+    def _player(self, surface: pygame.Surface, player, index: int) -> None:
+        previous = self._player_positions.get(player.player_id, (player.x, player.y))
+        dx = player.x - previous[0]
+        dy = player.y - previous[1]
+        facing = self._player_facing.get(player.player_id, "down")
+        if dx or dy:
+            if abs(dx) > abs(dy):
+                facing = "right" if dx > 0 else "left"
+            else:
+                facing = "down" if dy > 0 else "up"
+            self._player_motion_until[player.player_id] = pygame.time.get_ticks() + 120
+        now = pygame.time.get_ticks()
+        moving = now < self._player_motion_until.get(player.player_id, 0)
+        frame = (now // 140) % 3 if moving else 1
+        sprite = self.assets.character_frame(index, facing, frame)
+        sprite_rect = sprite.get_rect(midbottom=(player.x, player.y + 22))
+        surface.blit(sprite, sprite_rect)
+        self._player_positions[player.player_id] = (player.x, player.y)
+        self._player_facing[player.player_id] = facing
 
     def _room(self, surface) -> None:
         # Match the reference viewpoint: a quiet rear wall beneath the HUD,

@@ -13,6 +13,10 @@ import pygame
 from . import theme
 
 LABORATORY_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "laboratory"
+CHARACTER_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "characters"
+CHARACTER_FILES = ("doctor_female.png", "doctor_male.png")
+CHARACTER_CELL = (20, 32)
+CHARACTER_ROWS = {"down": 0, "left": 1, "right": 2, "up": 3}
 
 
 @dataclass(frozen=True)
@@ -57,10 +61,45 @@ STATION_SPRITES = {
 
 
 class AssetStore:
-    def __init__(self, root: Path = LABORATORY_ROOT) -> None:
+    def __init__(
+        self,
+        root: Path = LABORATORY_ROOT,
+        character_root: Path = CHARACTER_ROOT,
+    ) -> None:
         self.root = Path(root)
+        self.character_root = Path(character_root)
         self._sheets: dict[str, pygame.Surface | None] = {}
         self._sprites: dict[tuple[str, tuple[int, int]], pygame.Surface] = {}
+        self._character_sheets: dict[str, pygame.Surface | None] = {}
+        self._character_frames: dict[
+            tuple[int, str, int, tuple[int, int]], pygame.Surface
+        ] = {}
+
+    def character_frame(
+        self,
+        player_index: int,
+        direction: str,
+        frame: int,
+        size: tuple[int, int] = (40, 64),
+    ) -> pygame.Surface:
+        """Return one four-direction doctor frame at a crisp integer scale."""
+        direction = direction if direction in CHARACTER_ROWS else "down"
+        frame = max(0, min(2, int(frame)))
+        key = (player_index % len(CHARACTER_FILES), direction, frame, size)
+        if key not in self._character_frames:
+            filename = CHARACTER_FILES[key[0]]
+            sheet = self._character_sheet(filename)
+            if sheet is None:
+                result = self._player_placeholder(size, player_index)
+            else:
+                source = pygame.Rect(
+                    frame * CHARACTER_CELL[0],
+                    CHARACTER_ROWS[direction] * CHARACTER_CELL[1],
+                    *CHARACTER_CELL,
+                )
+                result = pygame.transform.scale(sheet.subsurface(source), size)
+            self._character_frames[key] = result
+        return self._character_frames[key]
 
     def sprite(self, name: str, size: tuple[int, int]) -> pygame.Surface:
         """Return an aspect-preserving crop centered in size, or a placeholder.
@@ -108,6 +147,28 @@ class AssetStore:
             return image if image.get_bounding_rect().width else None
         except (TypeError, ValueError, pygame.error):
             return None
+
+    def _character_sheet(self, filename: str) -> pygame.Surface | None:
+        if filename not in self._character_sheets:
+            try:
+                sheet = pygame.image.load(str(self.character_root / filename))
+                if pygame.display.get_surface() is not None:
+                    sheet = sheet.convert_alpha()
+                expected = (64, 128)
+                self._character_sheets[filename] = sheet if sheet.get_size() == expected else None
+            except (OSError, pygame.error):
+                self._character_sheets[filename] = None
+        return self._character_sheets[filename]
+
+    @staticmethod
+    def _player_placeholder(size: tuple[int, int], player_index: int) -> pygame.Surface:
+        surface = pygame.Surface(size, pygame.SRCALPHA)
+        color = theme.PLAYER_COLORS[player_index % len(theme.PLAYER_COLORS)]
+        center = (size[0] // 2, size[1] // 2)
+        radius = max(4, min(size) // 3)
+        pygame.draw.circle(surface, theme.DARK_INK, center, radius + 2)
+        pygame.draw.circle(surface, color, center, radius)
+        return surface
 
     @staticmethod
     def _placeholder(size: tuple[int, int], name: str = "") -> pygame.Surface:
