@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pygame
 
-from lab_panic.main import CARRIED_SAMPLE_LABEL_GAP, GameState, Renderer, display_position
+from lab_panic.main import CARRIED_ITEM_LABEL_GAP, GameState, Renderer, display_position
 from lab_panic.ui import theme
 
 
@@ -62,7 +62,7 @@ class CarriedSampleLabelTests(unittest.TestCase):
                         self.assertEqual(bounds, sprite.get_rect(midbottom=(x, y + 22)))
                         self.assertEqual(value, f"SAMPLE #{player_id + 1}")
                         self.assertEqual(label.centerx, bounds.centerx)
-                        self.assertEqual(bounds.top - label.bottom, CARRIED_SAMPLE_LABEL_GAP)
+                        self.assertEqual(bounds.top - label.bottom, CARRIED_ITEM_LABEL_GAP)
                         self.assertFalse(label.colliderect(bounds))
 
     def test_labels_follow_each_players_movement(self):
@@ -105,14 +105,15 @@ class CarriedSampleLabelTests(unittest.TestCase):
         for player_id, (_, label, _) in enumerate(labels):
             bounds = self.renderer.ui.player_sprite_bounds(str(player_id))
             self.assertEqual(bounds.size, frame.get_size())
-            self.assertEqual(bounds.top - label.bottom, CARRIED_SAMPLE_LABEL_GAP)
+            self.assertEqual(bounds.top - label.bottom, CARRIED_ITEM_LABEL_GAP)
             self.assertFalse(label.colliderect(bounds))
 
-    def test_report_and_package_label_positions_are_preserved(self):
+    def test_report_and_package_labels_clear_the_character_sprites(self):
         self.game.players[0]["item"] = {"kind": "report", "test": "CBC", "patient": 1}
         self.game.players[1]["item"] = {"kind": "package", "patient": 2}
         labels = {value: rect for value, rect, color in self.draw() if color == theme.DARK_INK}
         for player_id, value in ((0, "CBC #1"), (1, "PACKAGE #2")):
-            player = self.game.players[player_id]
-            x, y = display_position(player["x"], player["y"])
-            self.assertEqual(labels[value].center, (x, y - 54))
+            bounds = self.renderer.ui.player_sprite_bounds(str(player_id))
+            self.assertEqual(labels[value].centerx, bounds.centerx)
+            self.assertEqual(bounds.top - labels[value].bottom, CARRIED_ITEM_LABEL_GAP)
+            self.assertFalse(labels[value].colliderect(bounds))

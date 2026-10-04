@@ -20,6 +20,26 @@ CHARACTER_CELL = (40, 64)
 CHARACTER_SCALE = 2
 CHARACTER_DISPLAY_SIZE = tuple(dimension * CHARACTER_SCALE for dimension in CHARACTER_CELL)
 CHARACTER_ROWS = {"down": 0, "left": 1, "right": 2, "up": 3}
+FEMALE_SKIN_SOURCE = (246, 211, 193)
+FEMALE_SKIN_BASE = (232, 176, 143)
+
+
+def natural_female_skin(image: pygame.Surface) -> pygame.Surface:
+    """Warm only pale skin pixels while preserving coat, hair and blush."""
+    result = image.copy()
+    source_brightness = sum(FEMALE_SKIN_SOURCE)
+    for y in range(result.get_height()):
+        for x in range(result.get_width()):
+            color = result.get_at((x, y))
+            # Skin is light and warm. Neutral coat whites and pink blush fail
+            # the two channel-gap checks, while brown hair is below the floor.
+            if (color.a and color.r > 190 and color.r > color.g + 8
+                    and color.g > color.b + 5):
+                brightness = sum((color.r, color.g, color.b)) / source_brightness
+                warmed = tuple(min(255, round(channel * brightness))
+                               for channel in FEMALE_SKIN_BASE)
+                result.set_at((x, y), (*warmed, color.a))
+    return result
 
 
 @dataclass(frozen=True)
@@ -122,6 +142,8 @@ class AssetStore:
                 image = pygame.image.load(str(path))
                 if pygame.display.get_surface() is not None:
                     image = image.convert_alpha()
+                if key[0] == 0:
+                    image = natural_female_skin(image)
                 factor = min(
                     max_size[0] / image.get_width(),
                     max_size[1] / image.get_height(),
@@ -191,6 +213,8 @@ class AssetStore:
                 sheet = pygame.image.load(str(self.character_root / filename))
                 if pygame.display.get_surface() is not None:
                     sheet = sheet.convert_alpha()
+                if filename == "doctor_female.png":
+                    sheet = natural_female_skin(sheet)
                 expected = (120, 256)
                 self._character_sheets[filename] = sheet if sheet.get_size() == expected else None
             except (OSError, pygame.error):

@@ -4,7 +4,7 @@ import unittest
 
 import pygame
 
-from lab_panic.ui.assets import AssetStore, CHARACTER_ROOT
+from lab_panic.ui.assets import AssetStore, CHARACTER_ROOT, FEMALE_SKIN_BASE
 from tools.build_doctor_sprites import CLEAN_PALETTE, source_rows
 
 
@@ -63,3 +63,28 @@ class CharacterSheetTests(unittest.TestCase):
                 self.assertEqual(source.get_size(), expected_size)
                 self.assertLessEqual(portrait.get_width(), 110)
                 self.assertEqual(portrait.get_height(), 170)
+
+    def test_female_gameplay_and_menu_skin_is_warm_without_tinting_coat(self):
+        store = AssetStore()
+        gameplay = store.character_frame(0, "down", 1, (40, 64))
+        menu = store.menu_character(0)
+
+        self.assertIn(FEMALE_SKIN_BASE, {
+            tuple(gameplay.get_at((x, y)))[:3]
+            for y in range(gameplay.get_height())
+            for x in range(gameplay.get_width())
+        })
+        for image in (gameplay, menu):
+            coat_pixels = 0
+            warm_skin = []
+            for y in range(image.get_height()):
+                for x in range(image.get_width()):
+                    color = image.get_at((x, y))
+                    if color.a and abs(color.r - color.g) <= 8 and abs(color.g - color.b) <= 8:
+                        coat_pixels += color.r > 200
+                    if (color.a and color.r > 170 and color.r > color.g + 20
+                            and color.g > color.b + 10):
+                        warm_skin.append((color.r, color.g, color.b))
+            self.assertGreater(coat_pixels, 10)
+            self.assertGreater(len(warm_skin), 10)
+            self.assertLess(sum(color[1] for color in warm_skin) / len(warm_skin), 200)

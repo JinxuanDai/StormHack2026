@@ -43,7 +43,7 @@ PATIENT_SECONDS = 45.0
 PLAYER_SPEED = 250.0
 INTERACT_DISTANCE = 54
 SNAPSHOT_RATE = 1.0 / 30.0
-CARRIED_SAMPLE_LABEL_GAP = 18
+CARRIED_ITEM_LABEL_GAP = 18
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_DIR = REPO_ROOT / "assets"
@@ -702,16 +702,14 @@ class Renderer:
                 item = player["item"]
                 if item:
                     label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
-                    if item["kind"] == "sample":
-                        sprite_box = self.ui.player_sprite_bounds(str(index))
-                        label_box = pygame.Rect((0, 0), self.ui.fonts.small.size(label))
-                        label_box.midbottom = (
-                            sprite_box.centerx,
-                            sprite_box.top - CARRIED_SAMPLE_LABEL_GAP,
-                        )
-                        self.text(label, label_box.center, theme.DARK_INK, center=True)
-                    else:
-                        self.text(label, (x, y - 54), theme.DARK_INK, center=True)
+                    sprite_box = self.ui.player_sprite_bounds(str(index))
+                    label_box = pygame.Rect((0, 0), self.ui.fonts.small.size(label))
+                    label_box.midbottom = (
+                        sprite_box.centerx,
+                        sprite_box.top - CARRIED_ITEM_LABEL_GAP,
+                    )
+                    self.text(label, label_box.center, theme.DARK_INK, center=True)
+                    if item["kind"] != "sample":
                         color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
                         rect = pygame.Rect(x + 16, y - 12, 26, 20)
                         pygame.draw.rect(self.screen, color, rect, border_radius=3)
