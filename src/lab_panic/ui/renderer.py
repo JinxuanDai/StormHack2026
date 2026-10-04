@@ -222,18 +222,18 @@ class Renderer:
         pygame.draw.rect(surface, (91, 160, 166), (0, wall_bottom - 7, theme.WIDTH, 7))
         pygame.draw.line(surface, (52, 112, 123), (0, wall_bottom), (theme.WIDTH, wall_bottom), 3)
 
-        # Smaller window, with a clear gap from the raised title panel.
-        window = pygame.Rect(88, 62, 132, 76)
-        pygame.draw.rect(surface, (120, 174, 181), window.inflate(8, 8))
-        pygame.draw.rect(surface, (65, 92, 108), window.inflate(4, 4))
-        pygame.draw.rect(surface, (151, 204, 218), window)
-        pygame.draw.polygon(
-            surface,
-            (207, 235, 239),
-            [(window.left + 8, window.top), (window.left + 31, window.top),
-             (window.left + 8, window.top + 32)],
-        )
-        pygame.draw.line(surface, (118, 171, 190), window.midtop, window.midbottom, 2)
+        # Matching compact windows frame the title at the same height.
+        for window in (pygame.Rect(94, 36, 112, 64), pygame.Rect(754, 36, 112, 64)):
+            pygame.draw.rect(surface, (120, 174, 181), window.inflate(8, 8))
+            pygame.draw.rect(surface, (65, 92, 108), window.inflate(4, 4))
+            pygame.draw.rect(surface, (151, 204, 218), window)
+            pygame.draw.polygon(
+                surface,
+                (207, 235, 239),
+                [(window.left + 8, window.top), (window.left + 28, window.top),
+                 (window.left + 8, window.top + 28)],
+            )
+            pygame.draw.line(surface, (118, 171, 190), window.midtop, window.midbottom, 2)
 
         # Reuse gameplay's laboratory sprites so the menu matches the room.
         machines = (
@@ -253,10 +253,10 @@ class Renderer:
         surface.blit(pygame.transform.flip(bench, True, False), (824, 530))
 
     def _menu_doctor(self, surface: pygame.Surface, player_index: int, center_x: int) -> None:
-        sprite = self.assets.character_frame(player_index, "down", 1, (80, 128))
-        rect = sprite.get_rect(midbottom=(center_x, 488))
+        sprite = self.assets.character_frame(player_index, "down", 1, (92, 148))
+        rect = sprite.get_rect(midbottom=(center_x, 493))
         # This muted grounding shadow is intentionally not a selection halo.
-        pygame.draw.ellipse(surface, (123, 159, 166), (rect.centerx - 31, 480, 62, 9))
+        pygame.draw.ellipse(surface, (123, 159, 166), (rect.centerx - 35, 484, 70, 10))
         surface.blit(sprite, rect)
 
     def draw_menu(self, surface, selected: int = 0) -> None:
