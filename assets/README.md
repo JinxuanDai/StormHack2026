@@ -23,7 +23,9 @@ Only publish redistributable assets. One teammate owns asset importing.
   - Author: Jephed, Game Between The Lines
   - Source: https://gamebetweenthelines.itch.io/top-down-pixel-art-characters
   - License/usage: free for commercial and non-commercial use; credit appreciated
-  - Source sheets retained in `sprites/characters/source/`
-  - Modification: selected characters 010 and 003 were recolored into a white
-    laboratory coat and blue shirt while preserving the original 12-frame walk
-    cycles. `tools/build_doctor_sprites.py` reproduces the derived PNG files.
+  - Original pose-reference sheets retained in `sprites/characters/source/`
+  - Approved male/female design sheets retained in `sprites/characters/design/`
+  - Modification: the approved white-coat character designs were arranged into
+    the source pack's four-direction, 12-frame layout and normalized into native
+    40 × 64 game frames. `tools/build_doctor_sprites.py` reproduces the derived
+    PNG files.

@@ -76,11 +76,11 @@ Treat cached surfaces as read-only. Packaging may supply an explicit asset root
 to `AssetStore`. Keep station type mapping in `STATION_SPRITES`; rendering does
 not require changes to A/B's state models.
 
-Both players now use separate 20 × 32, four-direction doctor sprite sheets.
+Both players now use separate 40 × 64, four-direction doctor sprite sheets.
 The renderer infers facing and walk animation from successive immutable display
 positions, so gameplay and network payloads do not need animation fields.
-Sprites render at 40 × 64 with nearest-neighbor scaling and keep the existing
-collision coordinates unchanged. Missing character files fall back to the
+Sprites render at their native 40 × 64 size and keep the existing collision
+coordinates unchanged. Missing character files fall back to the
 Phase 1 circle art. Source, license and modifications are recorded beside the
 character assets and in `assets/README.md`.
 

@@ -1,7 +1,7 @@
 # Lab Panic doctor sprites
 
-`doctor_female.png` and `doctor_male.png` are 64 × 128 transparent PNG sprite
-sheets. Each sheet contains three 20 × 32 animation frames in each row:
+`doctor_female.png` and `doctor_male.png` are 120 × 256 transparent PNG sprite
+sheets. Each sheet contains three 40 × 64 animation frames in each row:
 
 1. down/front
 2. left
@@ -18,9 +18,10 @@ Credit is appreciated:
 
 > Jephed, Game Between The Lines, https://gamebetweenthelines.com/
 
-Lab Panic recolors the clothing into white laboratory coats with blue shirts.
-No frames or poses were generated or removed. Run the reproducible build from
-the repository root:
+The approved designs in `design/` replace the original characters' appearance:
+both have brown hair, blue shirts and white laboratory coats, while their male
+and female silhouettes remain distinct. The source pack supplies the directional
+layout/pose reference. Run the reproducible conversion from the repository root:
 
 ```sh
 .venv/bin/python tools/build_doctor_sprites.py

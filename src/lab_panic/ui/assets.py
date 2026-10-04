@@ -15,7 +15,7 @@ from . import theme
 LABORATORY_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "laboratory"
 CHARACTER_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "characters"
 CHARACTER_FILES = ("doctor_female.png", "doctor_male.png")
-CHARACTER_CELL = (20, 32)
+CHARACTER_CELL = (40, 64)
 CHARACTER_ROWS = {"down": 0, "left": 1, "right": 2, "up": 3}
 
 
@@ -154,7 +154,7 @@ class AssetStore:
                 sheet = pygame.image.load(str(self.character_root / filename))
                 if pygame.display.get_surface() is not None:
                     sheet = sheet.convert_alpha()
-                expected = (64, 128)
+                expected = (120, 256)
                 self._character_sheets[filename] = sheet if sheet.get_size() == expected else None
             except (OSError, pygame.error):
                 self._character_sheets[filename] = None
