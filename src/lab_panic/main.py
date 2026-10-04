@@ -24,6 +24,9 @@ if not __package__:
     __package__ = "lab_panic"
 
 from .ui import theme
+from .ui.music import BackgroundMusic
+from .ui.audio import AudioManager
+from .ui.audio_observer import AudioObserver
 from .ui.renderer import Renderer as UIRenderer
 from .ui.views import PatientView, PlayerView, RoundView, StationView
 
@@ -261,6 +264,7 @@ class GameState:
             {"x": 826.0, "y": 500.0, "item": None, "message": "", "message_until": 0.0},
         ]
         self.next_patient_id = 1
+        self.discard_counts = [0, 0]
         self.patient_slots = [self._create_patient(), self._create_patient()]
         self.completed = 0
         self.score = 0
@@ -418,6 +422,7 @@ class GameState:
                         patient["package_taken"] = False
                 player["item"] = None
                 self.say(player_id, "Item discarded")
+                self.discard_counts[player_id] += 1
             else:
                 self.say(player_id, "Nothing to discard")
             return
@@ -555,6 +560,7 @@ class GameState:
             players.append(copy)
         return {
             "protocol_version": PROTOCOL_VERSION,
+            "discard_counts": list(self.discard_counts),
             "players": players,
             "patients": [
                 {
@@ -660,9 +666,12 @@ class Renderer:
     def text(self, value: str, pos: tuple[int, int], color=theme.INK, *, center=False) -> None:
         theme.text(self.screen, self.ui.fonts.small, value, pos, color, center=center)
 
-    def draw(self, state: dict[str, Any], local_player: int, status: str = "") -> None:
+    def draw(self, state: dict[str, Any], local_player: int, status: str = "") -> str | None:
+        result = None
         if state["finished"]:
-            self.ui.draw_result(self.screen, success=state["completed"] >= 3)
+            success = state["completed"] >= 3
+            self.ui.draw_result(self.screen, success=success)
+            result = "success" if success else "failure"
             self.text(f"Final score: {state['score']}   Best: {state['high_score']}", (480, 390), center=True)
             self.text(f"Patients completed: {state['completed']}", (480, 420), center=True)
             self.text("Esc: quit", (480, 450), center=True)
@@ -713,6 +722,7 @@ class Renderer:
                 self.text("Esc: quit", (480, 375), theme.DARK_INK, center=True)
         if state["finished"] and status:
             self.text(status, (480, 624), theme.RED, center=True)
+        return result
 
 
 def directional_input() -> tuple[int, int]:
@@ -731,6 +741,8 @@ def run_host(screen: pygame.Surface) -> None:
     renderer = Renderer(screen)
     clock = pygame.time.Clock()
     game = GameState()
+    audio = AudioManager()
+    audio_observer = AudioObserver()
     running = True
     previous_space = False
     broadcast_timer = 0.0
@@ -755,13 +767,17 @@ def run_host(screen: pygame.Surface) -> None:
                 game.interact(1)
             game.update(dt)
             state = game.snapshot(network.connected)
+            audio.handle(audio_observer.observe(state))
             broadcast_timer += dt
             if broadcast_timer >= SNAPSHOT_RATE:
                 network.broadcast(state)
                 broadcast_timer = 0.0
-            renderer.draw(state, 0)
+            result = renderer.draw(state, 0)
+            if result is not None and network.connected:
+                audio.handle(audio_observer.present_result(result))
             pygame.display.flip()
     finally:
+        audio.close()
         network.close()
 
 
@@ -772,6 +788,8 @@ def run_client(screen: pygame.Surface, host: str) -> None:
         error_screen(screen, f"Could not connect to {host}:{PORT}: {exc}")
         return
     renderer = Renderer(screen)
+    audio = AudioManager()
+    audio_observer = AudioObserver()
     clock = pygame.time.Clock()
     running = True
     previous_space = False
@@ -798,12 +816,20 @@ def run_client(screen: pygame.Surface, host: str) -> None:
                         "Host is running an older game version. Update both computers, then restart HOST and JOIN.",
                     )
                     return
-                renderer.draw(state, 1, "" if network.connected else "Connection lost")
+                if network.connected:
+                    audio.handle(audio_observer.observe(state))
+                else:
+                    audio.handle(audio_observer.disconnect())
+                result = renderer.draw(state, 1, "" if network.connected else "Connection lost")
+                if result is not None and network.connected:
+                    audio.handle(audio_observer.present_result(result))
             else:
+                audio.handle(audio_observer.disconnect())
                 waiting_state = GameState().snapshot(True)
                 renderer.draw(waiting_state, 1, f"Connecting to {host}...")
             pygame.display.flip()
     finally:
+        audio.close()
         network.close()
 
 
@@ -891,7 +917,9 @@ def main() -> int:
     pygame.init()
     pygame.display.set_caption("Lab Panic")
     screen = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
+    music = BackgroundMusic()
     try:
+        music.start()
         if args.smoke_test:
             renderer = Renderer(screen)
             game = GameState()
@@ -919,6 +947,7 @@ def main() -> int:
                 mode, host = choice
                 run_host(screen) if mode == "host" else run_client(screen, host)
     finally:
+        music.close()
         pygame.quit()
     return 0
 
