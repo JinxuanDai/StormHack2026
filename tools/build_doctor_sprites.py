@@ -24,12 +24,31 @@ SHEET_SIZE = (CELL_SIZE[0] * FRAME_COLUMNS, CELL_SIZE[1] * FRAME_ROWS)
 ALPHA_THRESHOLD = 48
 
 
-def source_cell(sheet: pygame.Surface, column: int, row: int) -> pygame.Rect:
-    """Split uneven generated-image dimensions without losing edge pixels."""
+def source_rows(sheet: pygame.Surface) -> list[tuple[int, int]]:
+    """Find character bands separated by transparent gutters, not equal rows."""
+    bands = []
+    start = None
+    for y in range(sheet.get_height()):
+        occupied = sum(sheet.get_at((x, y)).a >= ALPHA_THRESHOLD
+                       for x in range(sheet.get_width())) > max(20, sheet.get_width() // 50)
+        if occupied and start is None:
+            start = y
+        elif not occupied and start is not None:
+            bands.append((start, y))
+            start = None
+    if start is not None:
+        bands.append((start, sheet.get_height()))
+    if len(bands) != FRAME_ROWS:
+        raise ValueError(f"Expected four isolated character rows, found {len(bands)}")
+    return bands
+
+
+def source_cell(sheet: pygame.Surface, column: int, row: int,
+                rows: list[tuple[int, int]]) -> pygame.Rect:
+    """Use the measured vertical band and evenly spaced source columns."""
     left = round(column * sheet.get_width() / FRAME_COLUMNS)
     right = round((column + 1) * sheet.get_width() / FRAME_COLUMNS)
-    top = round(row * sheet.get_height() / FRAME_ROWS)
-    bottom = round((row + 1) * sheet.get_height() / FRAME_ROWS)
+    top, bottom = rows[row]
     return pygame.Rect(left, top, right - left, bottom - top)
 
 
@@ -65,10 +84,11 @@ def harden_alpha(surface: pygame.Surface) -> None:
 
 def convert_design(path: Path) -> pygame.Surface:
     design = pygame.image.load(str(path))
+    rows = source_rows(design)
     frames: list[tuple[pygame.Surface, pygame.Rect]] = []
     for row in range(FRAME_ROWS):
         for column in range(FRAME_COLUMNS):
-            cell = design.subsurface(source_cell(design, column, row)).copy()
+            cell = design.subsurface(source_cell(design, column, row, rows)).copy()
             bounds = opaque_bounds(cell)
             frames.append((cell, bounds))
 
@@ -85,6 +105,10 @@ def convert_design(path: Path) -> pygame.Surface:
         )
         frame = pygame.transform.scale(frame, scaled_size)
         harden_alpha(frame)
+        # These two approved male poses face opposite to their assigned row.
+        # Correct the source poses once so every walk cycle keeps its facing.
+        if path.name == "doctor_male_design.png" and index in (5, 6):
+            frame = pygame.transform.flip(frame, True, False)
         destination = frame.get_rect(
             midbottom=(
                 (index % FRAME_COLUMNS) * CELL_SIZE[0] + CELL_SIZE[0] // 2,

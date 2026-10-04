@@ -55,6 +55,11 @@ chmod +x "Start Lab Panic.command"
 
 ## Play over LAN
 
+Press **F11** or **Alt+Enter** to toggle fullscreen from any screen. You can
+also start with `python -m lab_panic.main --fullscreen`. The display preserves
+aspect ratio with black bars; mouse input and collision positions follow the
+same scaled canvas.
+
 1. On computer 1, start the game and select **HOST GAME**.
 2. The host screen displays its local IP address, for example `192.168.1.23`.
 3. On computer 2, start the game, enter that IP, then select **JOIN GAME**.

@@ -26,3 +26,10 @@ layout/pose reference. Run the reproducible conversion from the repository root:
 ```sh
 .venv/bin/python tools/build_doctor_sprites.py
 ```
+
+The converter detects the four opaque row bands separated by transparent
+gutters; the design rows are not evenly spaced vertically. Every output cell
+contains exactly one pose, aligned at its feet. Male source poses at row 2,
+column 3 and row 3, column 1 (one-based) are mirrored during conversion to
+correct their facing. Original design images remain unchanged. Runtime frames
+are cached at 2× size; collision rectangles are independent of sprite size.

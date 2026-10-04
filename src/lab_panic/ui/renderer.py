@@ -18,14 +18,17 @@ class Renderer:
     def draw_gameplay(self, surface: pygame.Surface, snapshot: RoundView) -> None:
         surface.fill(theme.BACKGROUND)
         self._room(surface)
-        for station in snapshot.stations:
-            self._station(surface, station)
+        station_boxes = [(station, self._station(surface, station))
+                         for station in snapshot.stations]
         for sample in snapshot.samples:
             self._sample(surface, sample.x, sample.y)
         for index, player in enumerate(snapshot.players):
             self._player(surface, player, index)
             if player.held_item is not None:
                 self._sample(surface, player.x + 22, player.y + 5)
+        # Labels float above characters; they never participate in collision.
+        for station, sprite_box in station_boxes:
+            self._station_label(surface, station, sprite_box)
         hud.draw_hud(surface, self.fonts, snapshot)
 
     def _player(self, surface: pygame.Surface, player, index: int) -> None:
@@ -66,7 +69,7 @@ class Renderer:
         pygame.draw.line(surface, (52, 112, 123), (room.left, floor_top), (room.right, floor_top), 3)
         pygame.draw.rect(surface, theme.BORDER, room, 2)
 
-    def _station(self, surface, station: StationView) -> None:
+    def _station(self, surface, station: StationView) -> pygame.Rect:
         rect = pygame.Rect(station.x, station.y, station.width, station.height)
         visual_sizes = {
             "extraction": (120, 100),
@@ -122,12 +125,12 @@ class Renderer:
                 slide = self.assets.sprite("blood_smear_slide", (18, 9))
                 surface.blit(slide, slide.get_rect(center=(sprite_box.left + 46, sprite_box.top + 56)))
 
-        self._station_label(surface, station, rect, sprite_box)
         if station.is_complete:
             hud.draw_checkmark(surface, (sprite_box.right - 5, sprite_box.top + 8))
         elif station.is_processing:
             progress = pygame.Rect(rect.centerx - 48, sprite_box.bottom + 2, 96, 8)
             hud.draw_progress(surface, progress, station.processing_progress)
+        return sprite_box
 
     def _sample_bench(self, surface: pygame.Surface, sprite_box: pygame.Rect) -> None:
         """Assemble the reference extraction bench from its separate sprites."""
@@ -153,7 +156,6 @@ class Renderer:
         self,
         surface: pygame.Surface,
         station: StationView,
-        logical_rect: pygame.Rect,
         sprite_box: pygame.Rect,
     ) -> None:
         lines = tuple(label.upper() for label in station.label)

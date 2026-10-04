@@ -16,6 +16,8 @@ LABORATORY_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "
 CHARACTER_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "characters"
 CHARACTER_FILES = ("doctor_female.png", "doctor_male.png")
 CHARACTER_CELL = (40, 64)
+CHARACTER_SCALE = 2
+CHARACTER_DISPLAY_SIZE = tuple(dimension * CHARACTER_SCALE for dimension in CHARACTER_CELL)
 CHARACTER_ROWS = {"down": 0, "left": 1, "right": 2, "up": 3}
 
 
@@ -80,9 +82,13 @@ class AssetStore:
         player_index: int,
         direction: str,
         frame: int,
-        size: tuple[int, int] = (40, 64),
+        size: tuple[int, int] = CHARACTER_DISPLAY_SIZE,
     ) -> pygame.Surface:
-        """Return one four-direction doctor frame at a crisp integer scale."""
+        """Crop, enlarge and cache a doctor frame; default is twice source size.
+
+        Source crop coordinates remain in original sheet pixels. Display size
+        affects presentation only; the game's collision rectangle is separate.
+        """
         direction = direction if direction in CHARACTER_ROWS else "down"
         frame = max(0, min(2, int(frame)))
         key = (player_index % len(CHARACTER_FILES), direction, frame, size)

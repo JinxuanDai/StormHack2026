@@ -65,5 +65,5 @@ class UIIntegrationTests(unittest.TestCase):
             for direction in ("down", "left", "right", "up"):
                 for frame_index in range(3):
                     frame = assets.character_frame(player_index, direction, frame_index)
-                    self.assertEqual(frame.get_size(), (40, 64))
+                    self.assertEqual(frame.get_size(), (80, 128))
                     self.assertGreater(frame.get_bounding_rect().width, 0)
