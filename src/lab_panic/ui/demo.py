@@ -26,16 +26,16 @@ MOCK_ROUND = RoundView(
         PatientView("P-004", ("CBC", "Blood Smear", "Coagulation")),
     ),
     stations=(
-        StationView("extraction", "extraction", ("Sample Extraction",), 220, 208),
-        StationView("cbc", "cbc", ("CBC",), 690, 208, is_processing=True, processing_progress=0.58),
-        StationView("trash", "trash", ("Trash",), 52, 403, width=150),
-        StationView("submit", "submit", ("Submit",), 918, 403, width=150),
-        StationView("package", "package", ("Package",), 455, 403),
-        StationView("smear", "microscope", ("Blood Smear", "+ Microscope"), 220, 589),
-        StationView("coagulation", "coagulation", ("Coagulation Test",), 690, 589, is_complete=True),
+        StationView("extraction", "extraction", ("Sample Extraction",), 184, 150, width=190),
+        StationView("cbc", "cbc", ("CBC",), 586, 150, width=190, is_processing=True, processing_progress=0.58),
+        StationView("trash", "trash", ("Trash",), 36, 304, width=134),
+        StationView("submit", "submit", ("Submit",), 790, 304, width=134),
+        StationView("package", "package", ("Package",), 385, 304, width=190),
+        StationView("smear", "microscope", ("Blood Smear", "+ Microscope"), 184, 458, width=190),
+        StationView("coagulation", "coagulation", ("Coagulation Test",), 586, 458, width=190, is_complete=True),
     ),
-    players=(PlayerView("one", 360, 434, "sample-one"), PlayerView("two", 758, 510)),
-    samples=(SampleView("sample-two", 495, 494),),
+    players=(PlayerView("one", 318, 354, "sample-one"), PlayerView("two", 655, 399)),
+    samples=(SampleView("sample-two", 451, 374),),
 )
 
 SCREENS = ("menu", "gameplay", "success", "failure")
@@ -53,7 +53,7 @@ def draw_screen(renderer: Renderer, surface, screen: str, selected: int = 0) -> 
     hint = "1 Menu   2 Gameplay   3 Success   4 Failure   Esc Quit"
     if screen == "menu":
         hint += "   |   Up/Down + Enter or click"
-    theme.text(surface, renderer.fonts.small, hint, (theme.WIDTH // 2, 775), theme.MUTED, center=True)
+    theme.text(surface, renderer.fonts.small, hint, (theme.WIDTH // 2, theme.HEIGHT - 15), theme.MUTED, center=True)
 
 
 def main() -> None:

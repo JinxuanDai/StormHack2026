@@ -3,7 +3,7 @@
 import pygame
 
 from . import hud, theme
-from .assets import AssetStore
+from .assets import AssetStore, STATION_SPRITES
 from .views import RoundView, StationView
 
 
@@ -31,42 +31,43 @@ class Renderer:
 
     def _room(self, surface) -> None:
         room = pygame.Rect(theme.ROOM)
-        pygame.draw.rect(surface, theme.BORDER, room, border_radius=12)
-        floor = room.inflate(-20, -20)
-        pygame.draw.rect(surface, theme.FLOOR, floor, border_radius=5)
-        for x in range(floor.left + 40, floor.right, 40):
-            pygame.draw.line(surface, theme.GRID, (x, floor.top), (x, floor.bottom))
-        for y in range(floor.top + 40, floor.bottom, 40):
-            pygame.draw.line(surface, theme.GRID, (floor.left, y), (floor.right, y))
+        pygame.draw.rect(surface, theme.BORDER, room, border_radius=8)
+        floor = room.inflate(-16, -16)
+        tile = self.assets.sprite("floor_tile", theme.FLOOR_TILE_SIZE)
+        previous_clip = surface.get_clip()
+        surface.set_clip(previous_clip.clip(floor))
+        for y in range(floor.top, floor.bottom, tile.get_height()):
+            for x in range(floor.left, floor.right, tile.get_width()):
+                surface.blit(tile, (x, y))
+        surface.set_clip(previous_clip)
 
     def _station(self, surface, station: StationView) -> None:
-        rect = pygame.Rect(station.x, station.y, station.width, 128)
-        pygame.draw.rect(surface, theme.SHADOW, rect.move(0, 5), border_radius=10)
-        pygame.draw.rect(surface, theme.PANEL, rect, border_radius=10)
-        pygame.draw.rect(surface, theme.BORDER, rect, width=1, border_radius=10)
+        rect = pygame.Rect(station.x, station.y, station.width, theme.STATION_HEIGHT)
+        label_rect = pygame.Rect(rect.x, rect.y, rect.width, 24 if len(station.label) == 1 else 44)
+        pygame.draw.rect(surface, theme.PANEL, label_rect, border_radius=5)
         for row, label in enumerate(station.label):
-            theme.text(surface, self.fonts.body, label, (rect.centerx, rect.top + 20 + row * 22), center=True)
-        icon_y = rect.bottom - 67
-        surface.blit(self.assets.sprite(station.station_type, (58, 48)), (rect.centerx - 29, icon_y))
+            theme.text(surface, self.fonts.body, label, (rect.centerx, rect.top + 12 + row * 20), center=True)
+        sprite_box = pygame.Rect(0, 0, *theme.STATION_SPRITE_SIZE)
+        sprite_box.midbottom = (rect.centerx, rect.bottom - 10)
+        pygame.draw.ellipse(surface, theme.SHADOW, (rect.centerx - 46, rect.bottom - 22, 92, 16))
+        sprite_name = STATION_SPRITES.get(station.station_type, station.station_type)
+        surface.blit(self.assets.sprite(sprite_name, sprite_box.size), sprite_box)
         if station.is_complete:
-            hud.draw_checkmark(surface, (rect.right - 23, rect.bottom - 35))
+            hud.draw_checkmark(surface, (rect.centerx + 58, rect.bottom - 24))
         elif station.is_processing:
-            hud.draw_progress(surface, pygame.Rect(rect.x + 16, rect.bottom - 12, rect.width - 32, 6), station.processing_progress)
+            hud.draw_progress(surface, pygame.Rect(rect.centerx - 44, rect.bottom - 6, 88, 6), station.processing_progress)
 
-    @staticmethod
-    def _sample(surface, x: int, y: int) -> None:
-        pygame.draw.rect(surface, theme.INK, (x - 6, y - 13, 12, 27), border_radius=4)
-        pygame.draw.rect(surface, theme.PANEL, (x - 4, y - 10, 8, 20), border_radius=3)
-        pygame.draw.rect(surface, theme.RED, (x - 3, y, 6, 9), border_radius=2)
-        pygame.draw.rect(surface, theme.TEAL, (x - 7, y - 15, 14, 6), border_radius=2)
+    def _sample(self, surface, x: int, y: int) -> None:
+        image = self.assets.sprite("sample_tube", theme.SAMPLE_SIZE)
+        surface.blit(image, image.get_rect(center=(x, y)))
 
     @staticmethod
     def menu_buttons() -> tuple[pygame.Rect, ...]:
-        return tuple(pygame.Rect(420, 345 + index * 76, 280, 56) for index in range(3))
+        return tuple(pygame.Rect((theme.WIDTH - 280) // 2, 270 + index * 68, 280, 52) for index in range(3))
 
     def draw_menu(self, surface, selected: int = 0) -> None:
         surface.fill(theme.BACKGROUND)
-        theme.text(surface, self.fonts.title, "LAB PANIC", (theme.WIDTH // 2, 245), theme.TEAL, center=True)
+        theme.text(surface, self.fonts.title, "LAB PANIC", (theme.WIDTH // 2, 190), theme.TEAL, center=True)
         for index, (label, rect) in enumerate(zip(("HOST", "JOIN", "QUIT"), self.menu_buttons())):
             active = index == selected
             pygame.draw.rect(surface, theme.TEAL if active else theme.PANEL, rect, border_radius=8)

@@ -1,4 +1,4 @@
-# Part C Phase 1 preview
+# Part C Phase 2 preview
 
 Run from the repository's installed Python environment:
 
@@ -8,7 +8,7 @@ python -m lab_panic.ui.demo --smoke-test
 python -m lab_panic.main --smoke-test
 ```
 
-The window is fixed at 1120 × 800. Controls:
+The window is fixed at 960 × 640. Controls:
 
 - `1`: main menu
 - `2`: mock gameplay
@@ -40,11 +40,41 @@ checks test requirements, or decides round outcomes. A selects the menu/result
 screen and connects real host/join actions in the application's own event loop.
 Initialize Pygame before creating a renderer and reuse it between frames.
 
-No real sprite crops are registered yet. Room, station icons, players and sample
-vials are geometric placeholders. Original laboratory PNGs remain untouched.
-Add verified `SpriteRegion` entries centrally in `assets.py`; `AssetStore.sprite`
-loads/crops/scales in memory and caches results. Missing files, unregistered
-names and invalid crop bounds fall back to placeholders. Treat cached surfaces
-as read-only. Packaging may supply an explicit asset root to `AssetStore`.
+## Runtime sprite crops
+
+All crop rectangles are defined in `assets.py`, in source pixels `(x, y, width,
+height)`. Six original sheets are used: `1.png`, `3.png`, `4.png`, `5.png`,
+`6.png`, and `7.png`. No original images are modified or copied into the repo.
+
+| Named crop | Sheet | Source rectangle | Display role |
+| --- | --- | --- | --- |
+| `sample_extraction` | `3.png` | `(481, 308, 95, 75)` | Bench with tube rack and instrument |
+| `cbc_machine` | `7.png` | `(98, 298, 92, 84)` | Closed rectangular laboratory machine |
+| `microscope` | `4.png` | `(576, 577, 96, 95)` | Microscope on a bench |
+| `coagulation_machine` | `4.png` | `(401, 578, 63, 94)` | Open-lid round laboratory machine |
+| `package_table` | `3.png` | `(0, 304, 96, 80)` | Clear workbench |
+| `trash_bin` | `5.png` | `(677, 328, 39, 55)` | Yellow biohazard bin |
+| `submit_terminal` | `4.png` | `(180, 389, 108, 115)` | Computer workstation with chair |
+| `sample_tube` | `6.png` | `(542, 3, 21, 93)` | Red-filled tube, carried or on bench |
+| `floor_tile` | `1.png` | `(0, 0, 48, 48)` | Repeated neutral laboratory tile |
+
+Crop boundaries were visually inspected. The CBC and Coagulation assignments
+are fictional visual stand-ins: the round machine resembles a centrifuge, not
+an identified coagulation analyzer. No medical equipment identification is
+claimed. Bench-mounted props remain part of their single source crops.
+
+The loader uses `convert_alpha()` when a display is available, preserves aspect
+ratio, scales with nearest-neighbor sampling, and caches sheets and output
+surfaces. Missing/corrupt sheets, unknown names, invalid crop bounds and empty
+crops fall back to Phase 1 shapes. Samples and floor have their own fallbacks.
+Treat cached surfaces as read-only. Packaging may supply an explicit asset root
+to `AssetStore`. Keep station type mapping in `STATION_SPRITES`; rendering does
+not require changes to A/B's state models.
+
+Both players remain Phase 1 circle placeholders. Station label plates, borders,
+shadows, HUD, menus and results use Pygame primitives and its built-in font.
+Four mock cards and all seven areas fit the fixed 960 × 640 scene. Sample
+carrying and machine states are static examples, with no movement or rules.
+
 The team still needs to document original asset sources/licenses; no metadata
 has been invented. There are no new dependencies, audio assets or playback.
