@@ -279,8 +279,60 @@ class Renderer:
             )
             theme.text(surface, self.fonts.heading, label, draw_rect.center, theme.INK, center=True)
 
-    def draw_result(self, surface, *, success: bool) -> None:
-        surface.fill(theme.BACKGROUND)
-        panel = pygame.Rect(190, 242, 580, 156)
-        theme.cut_panel(surface, panel, theme.PANEL, theme.GREEN if success else theme.RED, cut=14)
-        hud.draw_message(surface, self.fonts, "LAB COMPLETE" if success else "LAB FAILED", theme.INK)
+    def draw_result(
+        self,
+        surface: pygame.Surface,
+        *,
+        success: bool,
+        score: int | None = None,
+        high_score: int | None = None,
+        completed: int | None = None,
+    ) -> None:
+        """Present the existing outcome in the same style as the main menu."""
+        self._menu_background(surface)
+
+        title_panel = pygame.Rect(278, 14, 404, 72)
+        theme.cut_panel(surface, title_panel, theme.PANEL, theme.BORDER, cut=12)
+        theme.text(surface, self.fonts.title, "LAB PANIC", title_panel.center, theme.INK, center=True)
+
+        self._menu_doctor(surface, 0, 210)
+        self._menu_doctor(surface, 1, theme.WIDTH - 210)
+
+        accent = theme.GREEN if success else theme.RED
+        result_panel = pygame.Rect(310, 276, 340, 70)
+        theme.cut_panel(surface, result_panel, theme.PANEL, accent, cut=12, shadow=True)
+        theme.text(
+            surface,
+            self.fonts.heading,
+            "LAB COMPLETE" if success else "LAB FAILED",
+            result_panel.center,
+            theme.INK,
+            center=True,
+        )
+
+        score_panel = pygame.Rect(326, 366, 308, 126)
+        theme.cut_panel(surface, score_panel, theme.PANEL, theme.BORDER, cut=10, shadow=True)
+        values = (
+            ("FINAL SCORE", "--" if score is None else str(score)),
+            ("BEST SCORE", "--" if high_score is None else str(high_score)),
+            ("PATIENTS COMPLETE", "--" if completed is None else str(completed)),
+        )
+        for index, (label, value) in enumerate(values):
+            row_y = score_panel.top + 24 + index * 38
+            theme.text(surface, self.fonts.small, label, (score_panel.left + 20, row_y), theme.MUTED)
+            value_rect = self.fonts.body.render(value, False, theme.INK).get_rect(
+                midright=(score_panel.right - 20, row_y + 5)
+            )
+            surface.blit(self.fonts.body.render(value, False, theme.INK), value_rect)
+            if index < len(values) - 1:
+                pygame.draw.line(
+                    surface,
+                    theme.PANEL_LIGHT,
+                    (score_panel.left + 18, row_y + 20),
+                    (score_panel.right - 18, row_y + 20),
+                    1,
+                )
+
+        exit_panel = pygame.Rect(375, 516, 210, 40)
+        theme.cut_panel(surface, exit_panel, theme.TEAL, theme.INK, cut=8)
+        theme.text(surface, self.fonts.small, "ESC TO QUIT", exit_panel.center, theme.INK, center=True)
