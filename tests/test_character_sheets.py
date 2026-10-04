@@ -4,7 +4,7 @@ import unittest
 
 import pygame
 
-from lab_panic.ui.assets import AssetStore, CHARACTER_ROOT, FEMALE_SKIN_BASE
+from lab_panic.ui.assets import AssetStore, CHARACTER_ROOT, MALE_MENU_SKIN_BASE
 from tools.build_doctor_sprites import CLEAN_PALETTE, source_rows
 
 
@@ -64,17 +64,26 @@ class CharacterSheetTests(unittest.TestCase):
                 self.assertLessEqual(portrait.get_width(), 110)
                 self.assertEqual(portrait.get_height(), 170)
 
-    def test_female_gameplay_and_menu_skin_is_warm_without_tinting_coat(self):
+    def test_female_skin_matches_male_without_tinting_coat(self):
         store = AssetStore()
-        gameplay = store.character_frame(0, "down", 1, (40, 64))
+        female_gameplay = store.character_frame(0, "down", 1, (40, 64))
+        male_gameplay = store.character_frame(1, "down", 1, (40, 64))
         menu = store.menu_character(0)
 
-        self.assertIn(FEMALE_SKIN_BASE, {
-            tuple(gameplay.get_at((x, y)))[:3]
-            for y in range(gameplay.get_height())
-            for x in range(gameplay.get_width())
-        })
-        for image in (gameplay, menu):
+        def skin_palette(image):
+            return {
+                tuple(image.get_at((x, y)))[:3]
+                for y in range(image.get_height())
+                for x in range(image.get_width())
+                if (image.get_at((x, y)).a
+                    and image.get_at((x, y)).r > 190
+                    and image.get_at((x, y)).r > image.get_at((x, y)).g + 8
+                    and image.get_at((x, y)).g > image.get_at((x, y)).b + 5)
+            }
+
+        self.assertEqual(skin_palette(female_gameplay), skin_palette(male_gameplay))
+        self.assertIn(MALE_MENU_SKIN_BASE, skin_palette(menu))
+        for image in (female_gameplay, menu):
             coat_pixels = 0
             warm_skin = []
             for y in range(image.get_height()):

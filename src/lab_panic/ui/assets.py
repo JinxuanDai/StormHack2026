@@ -20,14 +20,14 @@ CHARACTER_CELL = (40, 64)
 CHARACTER_SCALE = 2
 CHARACTER_DISPLAY_SIZE = tuple(dimension * CHARACTER_SCALE for dimension in CHARACTER_CELL)
 CHARACTER_ROWS = {"down": 0, "left": 1, "right": 2, "up": 3}
-FEMALE_SKIN_SOURCE = (246, 211, 193)
-FEMALE_SKIN_BASE = (232, 176, 143)
+FEMALE_MENU_SKIN_SOURCE = (253, 220, 202)
+MALE_MENU_SKIN_BASE = (250, 203, 171)
 
 
 def natural_female_skin(image: pygame.Surface) -> pygame.Surface:
-    """Warm only pale skin pixels while preserving coat, hair and blush."""
+    """Match the female menu portrait to the male portrait's skin tone."""
     result = image.copy()
-    source_brightness = sum(FEMALE_SKIN_SOURCE)
+    source_brightness = sum(FEMALE_MENU_SKIN_SOURCE)
     for y in range(result.get_height()):
         for x in range(result.get_width()):
             color = result.get_at((x, y))
@@ -37,7 +37,7 @@ def natural_female_skin(image: pygame.Surface) -> pygame.Surface:
                     and color.g > color.b + 5):
                 brightness = sum((color.r, color.g, color.b)) / source_brightness
                 warmed = tuple(min(255, round(channel * brightness))
-                               for channel in FEMALE_SKIN_BASE)
+                               for channel in MALE_MENU_SKIN_BASE)
                 result.set_at((x, y), (*warmed, color.a))
     return result
 
@@ -213,8 +213,6 @@ class AssetStore:
                 sheet = pygame.image.load(str(self.character_root / filename))
                 if pygame.display.get_surface() is not None:
                     sheet = sheet.convert_alpha()
-                if filename == "doctor_female.png":
-                    sheet = natural_female_skin(sheet)
                 expected = (120, 256)
                 self._character_sheets[filename] = sheet if sheet.get_size() == expected else None
             except (OSError, pygame.error):
