@@ -9,4 +9,5 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+.lab_panic_high_score.json
 _unity_backup/

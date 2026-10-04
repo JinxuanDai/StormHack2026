@@ -12,14 +12,15 @@ as possible during a three-minute shift.
 
 - Two-player host/client play over the same Wi-Fi or LAN
 - Arrow keys to move and Space to interact on both computers
-- One active patient with one to three randomized orders
+- Two concurrent patients with independent sample and package tables
+- Each patient has a 45-second deadline and one to three randomized tests
 - CBC: 2 seconds, white report
 - Blood smear + microscope: 3 seconds, purple report
 - Coagulation: 4 seconds, yellow report
 - Visible workstation progress bars
-- Package table accepts only requested, non-duplicate reports
+- Each package table accepts only its matching patient's requested reports
 - Trash discards unwanted samples, reports, or packages
-- Three-minute timer; three completed patients reaches the victory target
+- Three-minute shift with cumulative score and a host-local high score
 - Laboratory sprite sheets from `assets/sprites/laboratory/`
 
 ## Requirements
@@ -63,6 +64,18 @@ chmod +x "Start Lab Panic.command"
 The timer begins when player 2 connects. The host is authoritative for player
 positions, samples, workstation timers, reports, packages, and scoring.
 
+Two patient slots stay active throughout the shift. They begin as Patient #1
+and #2. Completing or timing out one slot replaces only that patient with the
+next ID; the other patient's timer and work remain unchanged. Samples, reports
+and packages keep an immutable patient ID from pickup through submission.
+
+Each patient has 45 seconds. Correct submission awards 100 points within 10
+seconds, 80 within 20, 60 within 30, 40 within 40, and 20 before the deadline.
+A timeout removes that order and deducts 40 points. The final score is the
+three-minute total. The host saves its best score in the ignored local file
+`.lab_panic_high_score.json`; clients see the host's score, but separate host
+computers do not share a leaderboard.
+
 ## Terminal setup
 
 ### Windows PowerShell
@@ -86,9 +99,12 @@ python3 -m venv .venv
 Direct command-line hosting and joining are also supported:
 
 ```bash
+python -m lab_panic.main
 python -m lab_panic.main --host
 python -m lab_panic.main --join 192.168.1.23
 ```
+
+Running without options opens the original `HOST` / `JOIN` / `QUIT` menu.
 
 ## Verification
 
@@ -96,8 +112,13 @@ python -m lab_panic.main --join 192.168.1.23
 python -m lab_panic.main --smoke-test
 ```
 
-The smoke test loads the repository assets, renders three frames headlessly,
-and exits. LAN transport has been tested locally on loopback; the team should
+The main entry point uses the shared UI renderer with live host snapshots,
+including processing progress, report collection, packaging and results.
+The standalone `python -m lab_panic.ui.demo` remains a static UI preview.
+
+The smoke test loads the repository assets and renders the menu, waiting screen,
+live machine and carried-item states, and both results headlessly, then exits.
+LAN transport has been tested locally on loopback; the team should
 also test between two physical computers before release.
 
 ## Team workflow
