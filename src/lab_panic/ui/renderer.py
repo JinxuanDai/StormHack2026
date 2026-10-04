@@ -42,12 +42,12 @@ class Renderer:
         surface.set_clip(previous_clip)
 
     def _station(self, surface, station: StationView) -> None:
-        rect = pygame.Rect(station.x, station.y, station.width, theme.STATION_HEIGHT)
+        rect = pygame.Rect(station.x, station.y, station.width, station.height)
         label_rect = pygame.Rect(rect.x, rect.y, rect.width, 24 if len(station.label) == 1 else 44)
         pygame.draw.rect(surface, theme.PANEL, label_rect, border_radius=5)
         for row, label in enumerate(station.label):
             theme.text(surface, self.fonts.body, label, (rect.centerx, rect.top + 12 + row * 20), center=True)
-        sprite_box = pygame.Rect(0, 0, *theme.STATION_SPRITE_SIZE)
+        sprite_box = pygame.Rect(0, 0, min(112, rect.width - 12), min(84, max(16, rect.height - label_rect.height - 12)))
         sprite_box.midbottom = (rect.centerx, rect.bottom - 10)
         pygame.draw.ellipse(surface, theme.SHADOW, (rect.centerx - 46, rect.bottom - 22, 92, 16))
         sprite_name = STATION_SPRITES.get(station.station_type, station.station_type)

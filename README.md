@@ -96,8 +96,13 @@ python -m lab_panic.main --join 192.168.1.23
 python -m lab_panic.main --smoke-test
 ```
 
-The smoke test loads the repository assets, renders three frames headlessly,
-and exits. LAN transport has been tested locally on loopback; the team should
+The main entry point uses the shared UI renderer with live host snapshots,
+including processing progress, report collection, packaging and results.
+The standalone `python -m lab_panic.ui.demo` remains a static UI preview.
+
+The smoke test loads the repository assets and renders the menu, waiting screen,
+live machine and carried-item states, and both results headlessly, then exits.
+LAN transport has been tested locally on loopback; the team should
 also test between two physical computers before release.
 
 ## Team workflow

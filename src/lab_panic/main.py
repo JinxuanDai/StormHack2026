@@ -17,6 +17,10 @@ from typing import Any
 
 import pygame
 
+from .ui import theme
+from .ui.renderer import Renderer as UIRenderer
+from .ui.views import PatientView, PlayerView, RoundView, StationView
+
 
 WIDTH, HEIGHT = 1280, 720
 HUD_HEIGHT = 128
@@ -448,218 +452,86 @@ class GameState:
         }
 
 
+def display_position(x: float, y: float) -> tuple[int, int]:
+    """Map authoritative world coordinates into the UI room interior."""
+    return (round(24 + x * 912 / WIDTH),
+            round(140 + (y - HUD_HEIGHT) * 460 / (HEIGHT - HUD_HEIGHT)))
+
+
+def display_zone(rect: pygame.Rect) -> pygame.Rect:
+    left, top = display_position(rect.left, rect.top)
+    right, bottom = display_position(rect.right, rect.bottom)
+    return pygame.Rect(left, top, right - left, bottom - top)
+
+
+def round_view(state: dict[str, Any]) -> RoundView:
+    """Adapt a host snapshot without changing simulation or wire format."""
+    types = {"sample": "extraction", "CBC": "cbc", "SMEAR": "microscope",
+             "COAG": "coagulation", "trash": "trash", "submit": "submit", "package": "package"}
+    labels = {"sample": ("Sample Extraction",), "CBC": ("CBC",),
+              "SMEAR": ("Blood Smear", "Microscope"), "COAG": ("Coagulation",),
+              "trash": ("Trash",), "submit": ("Submit",), "package": ("Package",)}
+    stations = []
+    for key, zone in ZONES.items():
+        rect = display_zone(zone)
+        machine = state["stations"].get(key, {})
+        phase = machine.get("phase", "idle")
+        stations.append(StationView(
+            key, types[key], labels[key], rect.x, rect.y, width=rect.width,
+            height=rect.height, is_processing=phase == "processing",
+            processing_progress=machine.get("elapsed", 0) / TEST_SECONDS[key] if key in TEST_SECONDS else 0,
+            is_complete=phase == "output" or (key == "package" and state["package_ready"])))
+    players = tuple(PlayerView(str(index), *display_position(player["x"], player["y"]),
+                               "sample" if player["item"] and player["item"]["kind"] == "sample" else None)
+                    for index, player in enumerate(state["players"]))
+    tasks = tuple("Blood Smear" if test == "SMEAR" else TEST_LABEL[test] for test in state["tasks"])
+    return RoundView(state["remaining"], (PatientView(f"P-{state['patient']:03d}", tasks),),
+                     tuple(stations), players, ())
+
+
 class Renderer:
+    """Application presentation adapter; simulation stays in world coordinates."""
+
     def __init__(self, screen: pygame.Surface) -> None:
         self.screen = screen
-        self.font = pygame.font.SysFont("arial", 24)
-        self.small = pygame.font.SysFont("arial", 18)
-        self.tiny = pygame.font.SysFont("arial", 15)
-        self.big = pygame.font.SysFont("arial", 52, bold=True)
-        self.title = pygame.font.SysFont("arial", 30, bold=True)
-        self.player_images = [self._load_player(1), self._load_player(2)]
-        self.lab_sprites = self._load_lab_sprites()
+        self.ui = UIRenderer()
 
-    @staticmethod
-    def _load_player(number: int) -> pygame.Surface | None:
-        path = ASSET_DIR / f"player{number}.png"
-        if not path.exists():
-            return None
-        try:
-            return pygame.transform.smoothscale(pygame.image.load(path).convert_alpha(), (54, 68))
-        except pygame.error:
-            return None
-
-    @staticmethod
-    def _load_lab_sprites() -> dict[str, pygame.Surface]:
-        """Crop useful sprites from the repository's laboratory sprite sheets."""
-        sprite_dir = ASSET_DIR / "sprites" / "laboratory"
-        try:
-            sheets = {
-                name: pygame.image.load(sprite_dir / f"{name}.png").convert_alpha()
-                for name in ("1", "5", "6", "7")
-            }
-        except (FileNotFoundError, pygame.error):
-            return {}
-
-        def crop(sheet: str, rect: tuple[int, int, int, int], size: tuple[int, int]) -> pygame.Surface:
-            source = sheets[sheet].subsurface(pygame.Rect(rect)).copy()
-            return pygame.transform.smoothscale(source, size)
-
-        return {
-            "floor": crop("1", (0, 0, 48, 48), (52, 52)),
-            "sample": crop("6", (0, 0, 132, 88), (96, 64)),
-            "CBC": crop("7", (194, 0, 91, 94), (64, 66)),
-            "SMEAR": crop("7", (0, 0, 102, 96), (72, 68)),
-            "COAG": crop("7", (0, 194, 106, 94), (76, 66)),
-            "trash": crop("6", (576, 385, 130, 96), (94, 70)),
-            "package": crop("6", (575, 0, 193, 96), (104, 52)),
-        }
-
-    def sprite(self, name: str, center: tuple[int, int]) -> None:
-        surface = self.lab_sprites.get(name)
-        if surface:
-            self.screen.blit(surface, surface.get_rect(center=center))
-
-    def text(self, text: str, pos: tuple[int, int], color: tuple[int, int, int] = BLACK,
-             font: pygame.font.Font | None = None, center: bool = False) -> pygame.Rect:
-        surface = (font or self.font).render(text, True, color)
-        rect = surface.get_rect(center=pos) if center else surface.get_rect(topleft=pos)
-        self.screen.blit(surface, rect)
-        return rect
+    def text(self, value: str, pos: tuple[int, int], color=theme.INK, *, center=False) -> None:
+        theme.text(self.screen, self.ui.fonts.small, value, pos, color, center=center)
 
     def draw(self, state: dict[str, Any], local_player: int, status: str = "") -> None:
-        self.screen.fill(BG)
-        self._draw_floor()
-        self._draw_hud(state)
-        self._draw_zones(state)
-        self._draw_players(state, local_player)
-        if status:
-            self.text(status, (WIDTH // 2, HEIGHT - 18), RED, self.small, center=True)
-        if not state.get("connected", False):
-            self._overlay("WAITING FOR PLAYER 2", f"Host IP: {local_ip()}   Port: {PORT}")
-        elif state.get("finished"):
-            result = "LAB SHIFT COMPLETE"
-            subtitle = f"Patients completed: {state['completed']} — " + ("VICTORY!" if state["completed"] >= 3 else "Try again")
-            self._overlay(result, subtitle)
-
-    def _draw_floor(self) -> None:
-        tile = 52
-        for y in range(HUD_HEIGHT, HEIGHT, tile):
-            for x in range(0, WIDTH, tile):
-                if "floor" in self.lab_sprites:
-                    self.screen.blit(self.lab_sprites["floor"], (x, y))
-                    if (x // tile + y // tile) % 2:
-                        shade = pygame.Surface((tile, tile), pygame.SRCALPHA)
-                        shade.fill((20, 45, 55, 12))
-                        self.screen.blit(shade, (x, y))
-                else:
-                    color = FLOOR_A if (x // tile + y // tile) % 2 == 0 else FLOOR_B
-                    pygame.draw.rect(self.screen, color, (x, y, tile - 1, tile - 1))
-
-    def _draw_hud(self, state: dict[str, Any]) -> None:
-        pygame.draw.rect(self.screen, NAVY, (0, 0, WIDTH, HUD_HEIGHT))
-        seconds = max(0, math.ceil(state["remaining"]))
-        self.text(f"{seconds // 60}:{seconds % 60:02d}", (25, 22), WHITE, self.big)
-        self.text(f"PATIENT #{state['patient']}", (245, 18), WHITE, self.title)
-        self.text("ORDER", (245, 59), (162, 184, 194), self.tiny)
-        x = 245
-        for test in TESTS:
-            required = test in state["tasks"]
-            color = TEST_COLOR[test] if required else (73, 91, 103)
-            rect = pygame.Rect(x, 82, 186 if test != "SMEAR" else 250, 32)
-            pygame.draw.rect(self.screen, color, rect, border_radius=7)
-            pygame.draw.rect(self.screen, WHITE if required else GRAY, rect, 2, border_radius=7)
-            self.text(TEST_LABEL[test] if required else "—", rect.center, BLACK if required else (143, 155, 161), self.tiny, True)
-            x = rect.right + 12
-        self.text(f"Completed: {state['completed']} / 3+", (1050, 27), WHITE, self.font)
-        victory = state["completed"] >= 3
-        self.text("Victory reached — keep going!" if victory else "Goal: 3 patients", (1050, 65), GREEN if victory else (182, 201, 210), self.small)
-
-    def _zone(self, rect: pygame.Rect, title: str, color: tuple[int, int, int]) -> None:
-        pygame.draw.rect(self.screen, (244, 246, 244), rect, border_radius=12)
-        pygame.draw.rect(self.screen, color, rect, 5, border_radius=12)
-        self.text(title, (rect.centerx, rect.top + 22), BLACK, self.small, True)
-
-    def _draw_zones(self, state: dict[str, Any]) -> None:
-        self._zone(ZONES["sample"], "BLOOD SAMPLE PICKUP", RED)
-        if "sample" in self.lab_sprites:
-            self.sprite("sample", (ZONES["sample"].centerx, ZONES["sample"].centery + 14))
+        if state["finished"]:
+            self.ui.draw_result(self.screen, success=state["completed"] >= 3)
+            self.text(f"Patients completed: {state['completed']} / 3", (480, 390), center=True)
+            self.text("Esc: quit", (480, 425), center=True)
         else:
-            for x in (142, 206, 270):
-                pygame.draw.rect(self.screen, RED, (x, 205, 18, 31), border_radius=5)
-                pygame.draw.rect(self.screen, WHITE, (x + 3, 209, 12, 10), border_radius=2)
-
-        self._draw_station("CBC", state)
-        self._draw_station("COAG", state)
-        self._draw_station("SMEAR", state)
-
-        self._zone(ZONES["trash"], "TRASH", GRAY)
-        self.sprite("trash", (ZONES["trash"].centerx, ZONES["trash"].centery + 18))
-        self.text("Discard", (ZONES["trash"].centerx, ZONES["trash"].bottom - 15), GRAY, self.tiny, True)
-        self._zone(ZONES["submit"], "SUBMIT", GREEN)
-        self.text("Package", (ZONES["submit"].centerx, ZONES["submit"].centery + 20), GREEN, self.tiny, True)
-
-        rect = ZONES["package"]
-        self._zone(rect, "PACKAGE TABLE", ORANGE)
-        reports = state["package_reports"]
-        required = state["tasks"]
-        self.text(f"Reports: {len(reports)} / {len(required)}", (rect.centerx, rect.top + 55), BLACK, self.small, True)
-        if state["package_ready"]:
-            self.sprite("package", (rect.centerx, rect.bottom - 29))
-            self.text("READY", (rect.centerx, rect.bottom - 13), BLACK, self.tiny, True)
-        else:
-            start_x = rect.centerx - (len(required) * 23)
-            for index, test in enumerate(required):
-                color = TEST_COLOR[test] if test in reports else (130, 139, 143)
-                pygame.draw.circle(self.screen, color, (start_x + index * 46 + 22, rect.bottom - 27), 11)
-
-    def _draw_station(self, test: str, state: dict[str, Any]) -> None:
-        rect = ZONES[test]
-        color = TEST_COLOR[test]
-        border = color if test != "CBC" else BLUE
-        self._zone(rect, TEST_LABEL[test].upper(), border)
-        station = state["stations"][test]
-        phase = station["phase"]
-        if phase == "idle":
-            self.sprite(test, (rect.centerx, rect.centery + 12))
-            label = f"SPACE: insert sample ({TEST_SECONDS[test]:g}s)"
-            self.text(label, (rect.centerx, rect.bottom - 10), GRAY, self.tiny, True)
-        elif phase == "processing":
-            progress = min(1.0, station["elapsed"] / TEST_SECONDS[test])
-            bar = pygame.Rect(rect.left + 24, rect.bottom - 34, rect.width - 48, 15)
-            pygame.draw.rect(self.screen, (172, 180, 181), bar, border_radius=7)
-            fill = bar.copy()
-            fill.width = round(bar.width * progress)
-            pygame.draw.rect(self.screen, BLUE, fill, border_radius=7)
-            self.text(f"Processing {progress * 100:.0f}%", (rect.centerx, rect.centery + 6), BLACK, self.tiny, True)
-        else:
-            report_color = TEST_COLOR[test]
-            report = pygame.Rect(rect.centerx - 32, rect.centery - 5, 64, 40)
-            pygame.draw.rect(self.screen, report_color, report, border_radius=4)
-            pygame.draw.rect(self.screen, BLACK, report, 2, border_radius=4)
-            self.text(f"#{station['patient']}", report.center, BLACK, self.tiny, True)
-            self.text("SPACE: collect report (empty hands)",
-                      (rect.centerx, rect.bottom - 10), GRAY, self.tiny, True)
-
-    def _draw_players(self, state: dict[str, Any], local_player: int) -> None:
-        for index, player in enumerate(state["players"]):
-            x, y = round(player["x"]), round(player["y"])
-            image = self.player_images[index]
-            if image:
-                self.screen.blit(image, image.get_rect(center=(x, y)))
-            else:
-                color = BLUE if index == 0 else RED
-                pygame.draw.circle(self.screen, (37, 44, 49), (x + 3, y + 16), 20)
-                pygame.draw.circle(self.screen, color, (x, y - 7), 23)
-                pygame.draw.circle(self.screen, (247, 211, 177), (x, y - 15), 13)
-            label = f"P{index + 1}" + (" (YOU)" if index == local_player else "")
-            self.text(label, (x, y + 37), NAVY, self.tiny, True)
-            if player["item"]:
+            self.ui.draw_gameplay(self.screen, round_view(state))
+            self.text(f"Completed: {state['completed']} / 3", (365, 24))
+            self.text(f"Reports packed: {len(state['package_reports'])} / {len(state['tasks'])}", (365, 50))
+            self.text("Packed: " + (", ".join(state["package_reports"]) or "none"), (365, 76))
+            for index, player in enumerate(state["players"]):
+                x, y = display_position(player["x"], player["y"])
+                self.text(f"P{index + 1}" + (" (YOU)" if index == local_player else ""), (x, y + 28), center=True)
                 item = player["item"]
-                if item["kind"] == "sample":
-                    item_label, item_color = f"Sample #{item['patient']}", RED
-                elif item["kind"] == "report":
-                    item_label, item_color = f"{item['test']} #{item['patient']}", TEST_COLOR[item["test"]]
-                else:
-                    item_label, item_color = f"Package #{item['patient']}", ORANGE
-                bubble = self.small.render(item_label, True, BLACK)
-                bubble_rect = bubble.get_rect(center=(x, y - 52)).inflate(14, 7)
-                pygame.draw.rect(self.screen, item_color, bubble_rect, border_radius=7)
-                pygame.draw.rect(self.screen, BLACK, bubble_rect, 2, border_radius=7)
-                self.screen.blit(bubble, bubble.get_rect(center=bubble_rect.center))
-            if player["message"]:
-                self.text(player["message"], (x, y + 57), RED, self.tiny, True)
-
-    def _overlay(self, heading: str, subtitle: str) -> None:
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((10, 18, 25, 175))
-        self.screen.blit(shade, (0, 0))
-        box = pygame.Rect(WIDTH // 2 - 310, HEIGHT // 2 - 92, 620, 184)
-        pygame.draw.rect(self.screen, WHITE, box, border_radius=16)
-        pygame.draw.rect(self.screen, BLUE, box, 5, border_radius=16)
-        self.text(heading, (WIDTH // 2, HEIGHT // 2 - 34), NAVY, self.title, True)
-        self.text(subtitle, (WIDTH // 2, HEIGHT // 2 + 20), BLACK, self.font, True)
-        self.text("Arrow keys: move    Space: interact    Esc: quit", (WIDTH // 2, HEIGHT // 2 + 59), GRAY, self.small, True)
+                if item:
+                    label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
+                    self.text(label, (x, y - 40), center=True)
+                    if item["kind"] != "sample":
+                        color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
+                        rect = pygame.Rect(x + 16, y - 12, 26, 20)
+                        pygame.draw.rect(self.screen, color, rect, border_radius=3)
+                        pygame.draw.rect(self.screen, theme.INK, rect, 1, border_radius=3)
+            message = state["players"][local_player]["message"]
+            self.text(status or message or "Arrow keys: move   Space: interact   Esc: quit", (480, 624), theme.RED if status or message else theme.MUTED, center=True)
+            if not state.get("connected", False):
+                shade = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+                shade.fill((230, 233, 236, 225))
+                self.screen.blit(shade, (0, 0))
+                theme.text(self.screen, self.ui.fonts.heading, "WAITING FOR PLAYER 2", (480, 290), center=True)
+                self.text(f"Host IP: {local_ip()}   Port: {PORT}", (480, 335), center=True)
+                self.text("Esc: quit", (480, 375), center=True)
+        if state["finished"] and status:
+            self.text(status, (480, 624), theme.RED, center=True)
 
 
 def directional_input() -> tuple[int, int]:
@@ -748,28 +620,15 @@ def run_client(screen: pygame.Surface, host: str) -> None:
         network.close()
 
 
-def button(screen: pygame.Surface, rect: pygame.Rect, label: str, font: pygame.font.Font,
-           mouse: tuple[int, int]) -> None:
-    hovered = rect.collidepoint(mouse)
-    pygame.draw.rect(screen, (66, 150, 205) if hovered else BLUE, rect, border_radius=10)
-    pygame.draw.rect(screen, WHITE, rect, 2, border_radius=10)
-    text = font.render(label, True, WHITE)
-    screen.blit(text, text.get_rect(center=rect.center))
-
-
 def main_menu(screen: pygame.Surface) -> tuple[str, str] | None:
-    title = pygame.font.SysFont("arial", 54, bold=True)
-    font = pygame.font.SysFont("arial", 25, bold=True)
-    small = pygame.font.SysFont("arial", 19)
-    host_button = pygame.Rect(WIDTH // 2 - 245, 350, 220, 62)
-    join_button = pygame.Rect(WIDTH // 2 + 25, 350, 220, 62)
-    ip_box = pygame.Rect(WIDTH // 2 - 245, 270, 490, 52)
+    renderer = UIRenderer()
+    ip_box = pygame.Rect(340, 510, 280, 42)
     ip_text = "127.0.0.1"
-    active = False
+    selected, active = 0, False
     clock = pygame.time.Clock()
+    host_ip = local_ip()
     while True:
         clock.tick(FPS)
-        mouse = pygame.mouse.get_pos()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return None
@@ -781,28 +640,31 @@ def main_menu(screen: pygame.Surface) -> tuple[str, str] | None:
                         ip_text = ip_text[:-1]
                     elif event.key == pygame.K_RETURN and ip_text:
                         return "join", ip_text
-                    elif event.unicode in "0123456789.":
+                    elif event.unicode and event.unicode in "0123456789.":
                         ip_text += event.unicode
+                else:
+                    if event.key in (pygame.K_UP, pygame.K_DOWN):
+                        selected = (selected + (1 if event.key == pygame.K_DOWN else -1)) % 3
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        if selected == 2:
+                            return None
+                        if selected == 0 or ip_text:
+                            return ("host", "") if selected == 0 else ("join", ip_text)
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 active = ip_box.collidepoint(event.pos)
-                if host_button.collidepoint(event.pos):
-                    return "host", ""
-                if join_button.collidepoint(event.pos) and ip_text:
-                    return "join", ip_text
-        screen.fill((20, 39, 53))
-        screen.blit(title.render("HEMATOLOGY LAB RUSH", True, WHITE), title.render("HEMATOLOGY LAB RUSH", True, WHITE).get_rect(center=(WIDTH // 2, 122)))
-        subtitle = small.render("Two-player LAN demo", True, (170, 198, 213))
-        screen.blit(subtitle, subtitle.get_rect(center=(WIDTH // 2, 178)))
-        pygame.draw.rect(screen, WHITE, ip_box, border_radius=8)
-        pygame.draw.rect(screen, BLUE if active else GRAY, ip_box, 3, border_radius=8)
-        ip_surface = font.render(ip_text or "Host IP address", True, BLACK if ip_text else GRAY)
-        screen.blit(ip_surface, (ip_box.left + 14, ip_box.centery - ip_surface.get_height() // 2))
-        button(screen, host_button, "HOST GAME", font, mouse)
-        button(screen, join_button, "JOIN GAME", font, mouse)
-        info = small.render(f"Host will listen on port {PORT}. Your local IP: {local_ip()}", True, (170, 198, 213))
-        screen.blit(info, info.get_rect(center=(WIDTH // 2, 465)))
-        controls = small.render("Arrow keys to move  |  Space to interact", True, (170, 198, 213))
-        screen.blit(controls, controls.get_rect(center=(WIDTH // 2, 510)))
+                for index, rect in enumerate(renderer.menu_buttons()):
+                    if rect.collidepoint(event.pos):
+                        selected = index
+                        if index == 2:
+                            return None
+                        if index == 0 or ip_text:
+                            return ("host", "") if index == 0 else ("join", ip_text)
+        renderer.draw_menu(screen, selected)
+        pygame.draw.rect(screen, theme.PANEL, ip_box, border_radius=6)
+        pygame.draw.rect(screen, theme.TEAL if active else theme.BORDER, ip_box, 2, border_radius=6)
+        theme.text(screen, renderer.fonts.small, ip_text or "Host IP address", (ip_box.x + 12, ip_box.y + 12))
+        theme.text(screen, renderer.fonts.small, "Join: click above to enter the host IP", (480, 575), center=True)
+        theme.text(screen, renderer.fonts.small, f"Your IP: {host_ip}   Port: {PORT}", (480, 606), center=True)
         pygame.display.flip()
 
 
@@ -819,9 +681,9 @@ def error_screen(screen: pygame.Surface, message: str) -> None:
         headline = font.render("NETWORK ERROR", True, RED)
         detail = small.render(message[:110], True, WHITE)
         prompt = small.render("Press any key to return", True, (174, 194, 204))
-        screen.blit(headline, headline.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 45)))
-        screen.blit(detail, detail.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
-        screen.blit(prompt, prompt.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 45)))
+        screen.blit(headline, headline.get_rect(center=(theme.WIDTH // 2, theme.HEIGHT // 2 - 45)))
+        screen.blit(detail, detail.get_rect(center=(theme.WIDTH // 2, theme.HEIGHT // 2)))
+        screen.blit(prompt, prompt.get_rect(center=(theme.WIDTH // 2, theme.HEIGHT // 2 + 45)))
         pygame.display.flip()
 
 
@@ -830,7 +692,7 @@ def parse_args() -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--host", action="store_true", help="host a LAN game")
     mode.add_argument("--join", metavar="IP", help="join a host by local IP")
-    mode.add_argument("--smoke-test", action="store_true", help="render three frames headlessly and exit")
+    mode.add_argument("--smoke-test", action="store_true", help="render menu, live states and results headlessly and exit")
     return parser.parse_args()
 
 
@@ -840,14 +702,24 @@ def main() -> int:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         os.environ["SDL_AUDIODRIVER"] = "dummy"
     pygame.init()
-    pygame.display.set_caption("Hematology Lab Rush")
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Lab Panic")
+    screen = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
     try:
         if args.smoke_test:
             renderer = Renderer(screen)
             game = GameState()
             game.start()
-            for _ in range(3):
+            renderer.ui.draw_menu(screen)
+            renderer.draw(game.snapshot(False), 0)
+            game.stations["CBC"].update(phase="processing", elapsed=1.0)
+            game.stations["COAG"].update(phase="output", patient=game.patient)
+            game.players[0]["item"] = {"kind": "report", "test": "CBC", "patient": game.patient}
+            game.players[1]["item"] = {"kind": "sample", "patient": game.patient}
+            game.package_ready = True
+            renderer.draw(game.snapshot(True), 0)
+            for completed in (0, 3):
+                game.finished = True
+                game.completed = completed
                 renderer.draw(game.snapshot(True), 0)
                 pygame.display.flip()
         elif args.host:

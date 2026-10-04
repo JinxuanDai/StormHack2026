@@ -39,6 +39,7 @@ class StationView:
     is_processing: bool = False
     processing_progress: float = 0.0
     is_complete: bool = False
+    height: int = 140
 
 
 @dataclass(frozen=True)
