@@ -3,11 +3,18 @@
 import copy
 import unittest
 
-from lab_panic.main import GameState, TEST_SECONDS, ZONES, display_zone, round_view
+from lab_panic.main import GameState, TEST_SECONDS, ZONES, compatible_snapshot, display_zone, round_view
 from lab_panic.ui import theme
 
 
 class UIIntegrationTests(unittest.TestCase):
+    def test_client_rejects_old_host_snapshot_without_patients(self):
+        legacy = GameState().snapshot(True)
+        legacy.pop("patients")
+        legacy.pop("protocol_version")
+        self.assertFalse(compatible_snapshot(legacy))
+        self.assertTrue(compatible_snapshot(GameState().snapshot(True)))
+
     def test_live_machine_states_and_items_preserve_snapshot(self):
         game = GameState()
         game.stations["CBC"].update(phase="processing", elapsed=TEST_SECONDS["CBC"] / 2)

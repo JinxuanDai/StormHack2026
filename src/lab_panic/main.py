@@ -32,6 +32,7 @@ WIDTH, HEIGHT = 1280, 720
 HUD_HEIGHT = 128
 FPS = 60
 PORT = 50505
+PROTOCOL_VERSION = 2
 GAME_SECONDS = 180.0
 PATIENT_SECONDS = 45.0
 PLAYER_SPEED = 250.0
@@ -553,6 +554,7 @@ class GameState:
                 copy["message"] = ""
             players.append(copy)
         return {
+            "protocol_version": PROTOCOL_VERSION,
             "players": players,
             "patients": [
                 {
@@ -587,6 +589,16 @@ def display_zone(rect: pygame.Rect) -> pygame.Rect:
     left, top = display_position(rect.left, rect.top)
     right, bottom = display_position(rect.right, rect.bottom)
     return pygame.Rect(left, top, right - left, bottom - top)
+
+
+def compatible_snapshot(state: dict[str, Any]) -> bool:
+    """Return whether a remote snapshot uses this branch's wire format."""
+    patients = state.get("patients")
+    return (
+        state.get("protocol_version") == PROTOCOL_VERSION
+        and isinstance(patients, list)
+        and len(patients) == 2
+    )
 
 
 def round_view(state: dict[str, Any]) -> RoundView:
@@ -759,6 +771,12 @@ def run_client(screen: pygame.Surface, host: str) -> None:
                 last_send = now
             state = network.state()
             if state:
+                if not compatible_snapshot(state):
+                    error_screen(
+                        screen,
+                        "Host is running an older game version. Update both computers, then restart HOST and JOIN.",
+                    )
+                    return
                 renderer.draw(state, 1, "" if network.connected else "Connection lost")
             else:
                 waiting_state = GameState().snapshot(True)
