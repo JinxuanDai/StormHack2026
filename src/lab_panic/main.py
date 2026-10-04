@@ -24,6 +24,7 @@ if not __package__:
     __package__ = "lab_panic"
 
 from .ui import theme
+from .ui.display import GameDisplay
 from .ui.music import BackgroundMusic
 from .ui.audio import AudioManager
 from .ui.audio_observer import AudioObserver
@@ -75,6 +76,14 @@ ZONES = {
     "package_1": pygame.Rect(678, 322, 172, 126),
     "SMEAR": pygame.Rect(102, 574, 268, 104),
     "COAG": pygame.Rect(910, 574, 268, 104),
+}
+
+# Interaction reaches the whole workstation. Movement blocks only its floor
+# footprint, leaving overhead equipment and label space walkable.
+MOVEMENT_ZONES = {
+    name: pygame.Rect(rect.left, rect.bottom - min(64, rect.height),
+                      rect.width, min(64, rect.height))
+    for name, rect in ZONES.items()
 }
 
 
@@ -379,7 +388,7 @@ class GameState:
         return pygame.Rect(round(player["x"] - 18), round(player["y"] - 22), 36, 44)
 
     def _solids(self) -> list[pygame.Rect]:
-        return [rect.inflate(6, 6) for rect in ZONES.values()]
+        return [rect.inflate(6, 6) for rect in MOVEMENT_ZONES.values()]
 
     def move(self, player_id: int, dx: int, dy: int, dt: float) -> None:
         if self.finished or not self.started:
@@ -681,14 +690,14 @@ class Renderer:
                 x, y = display_position(player["x"], player["y"])
                 self.text(
                     f"P{index + 1}" + (" (YOU)" if index == local_player else ""),
-                    (x, y + 28),
+                    (x, y + 36),
                     theme.DARK_INK,
                     center=True,
                 )
                 item = player["item"]
                 if item:
                     label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
-                    self.text(label, (x, y - 40), theme.DARK_INK, center=True)
+                    self.text(label, (x, y - 54), theme.DARK_INK, center=True)
                     if item["kind"] != "sample":
                         color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
                         rect = pygame.Rect(x + 16, y - 12, 26, 20)
@@ -732,11 +741,11 @@ def directional_input() -> tuple[int, int]:
     return x, y
 
 
-def run_host(screen: pygame.Surface) -> None:
+def run_host(screen: pygame.Surface, display: GameDisplay) -> None:
     try:
         network = HostNetwork()
     except OSError as exc:
-        error_screen(screen, f"Could not host on port {PORT}: {exc}")
+        error_screen(screen, f"Could not host on port {PORT}: {exc}", display)
         return
     renderer = Renderer(screen)
     clock = pygame.time.Clock()
@@ -749,7 +758,7 @@ def run_host(screen: pygame.Surface) -> None:
     try:
         while running:
             dt = min(clock.tick(FPS) / 1000.0, 0.05)
-            for event in pygame.event.get():
+            for event in display.events():
                 if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                     running = False
             if network.connected and not game.started:
@@ -775,17 +784,17 @@ def run_host(screen: pygame.Surface) -> None:
             result = renderer.draw(state, 0)
             if result is not None and network.connected:
                 audio.handle(audio_observer.present_result(result))
-            pygame.display.flip()
+            display.present()
     finally:
         audio.close()
         network.close()
 
 
-def run_client(screen: pygame.Surface, host: str) -> None:
+def run_client(screen: pygame.Surface, host: str, display: GameDisplay) -> None:
     try:
         network = ClientNetwork(host)
     except OSError as exc:
-        error_screen(screen, f"Could not connect to {host}:{PORT}: {exc}")
+        error_screen(screen, f"Could not connect to {host}:{PORT}: {exc}", display)
         return
     renderer = Renderer(screen)
     audio = AudioManager()
@@ -797,7 +806,7 @@ def run_client(screen: pygame.Surface, host: str) -> None:
     try:
         while running:
             clock.tick(FPS)
-            for event in pygame.event.get():
+            for event in display.events():
                 if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                     running = False
             x, y = directional_input()
@@ -814,6 +823,7 @@ def run_client(screen: pygame.Surface, host: str) -> None:
                     error_screen(
                         screen,
                         "Host is running an older game version. Update both computers, then restart HOST and JOIN.",
+                        display,
                     )
                     return
                 if network.connected:
@@ -827,13 +837,13 @@ def run_client(screen: pygame.Surface, host: str) -> None:
                 audio.handle(audio_observer.disconnect())
                 waiting_state = GameState().snapshot(True)
                 renderer.draw(waiting_state, 1, f"Connecting to {host}...")
-            pygame.display.flip()
+            display.present()
     finally:
         audio.close()
         network.close()
 
 
-def main_menu(screen: pygame.Surface) -> tuple[str, str] | None:
+def main_menu(screen: pygame.Surface, display: GameDisplay) -> tuple[str, str] | None:
     renderer = UIRenderer()
     ip_box = pygame.Rect(340, 510, 280, 42)
     ip_text = "127.0.0.1"
@@ -842,9 +852,14 @@ def main_menu(screen: pygame.Surface) -> tuple[str, str] | None:
     host_ip = local_ip()
     while True:
         clock.tick(FPS)
-        for event in pygame.event.get():
+        for event in display.events():
             if event.type == pygame.QUIT:
                 return None
+            if event.type == pygame.MOUSEMOTION:
+                for index, rect in enumerate(renderer.menu_buttons()):
+                    if rect.inflate(16, 8).collidepoint(event.pos):
+                        selected = index
+                        break
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return None
@@ -866,7 +881,7 @@ def main_menu(screen: pygame.Surface) -> tuple[str, str] | None:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 active = ip_box.collidepoint(event.pos)
                 for index, rect in enumerate(renderer.menu_buttons()):
-                    if rect.collidepoint(event.pos):
+                    if rect.inflate(16, 8).collidepoint(event.pos):
                         selected = index
                         if index == 2:
                             return None
@@ -876,18 +891,32 @@ def main_menu(screen: pygame.Surface) -> tuple[str, str] | None:
         pygame.draw.rect(screen, theme.PANEL, ip_box, border_radius=6)
         pygame.draw.rect(screen, theme.TEAL if active else theme.BORDER, ip_box, 2, border_radius=6)
         theme.text(screen, renderer.fonts.small, ip_text or "Host IP address", (ip_box.x + 12, ip_box.y + 12))
-        theme.text(screen, renderer.fonts.small, "Join: click above to enter the host IP", (480, 575), center=True)
-        theme.text(screen, renderer.fonts.small, f"Your IP: {host_ip}   Port: {PORT}", (480, 606), center=True)
-        pygame.display.flip()
+        theme.text(
+            screen,
+            renderer.fonts.small,
+            "Join: enter host IP | F11: fullscreen",
+            (480, 575),
+            theme.DARK_INK,
+            center=True,
+        )
+        theme.text(
+            screen,
+            renderer.fonts.small,
+            f"Your IP: {host_ip}   Port: {PORT}",
+            (480, 606),
+            theme.DARK_INK,
+            center=True,
+        )
+        display.present()
 
 
-def error_screen(screen: pygame.Surface, message: str) -> None:
+def error_screen(screen: pygame.Surface, message: str, display: GameDisplay) -> None:
     font = pygame.font.SysFont("arial", 23)
     small = pygame.font.SysFont("arial", 18)
     clock = pygame.time.Clock()
     while True:
         clock.tick(FPS)
-        for event in pygame.event.get():
+        for event in display.events():
             if event.type == pygame.QUIT or event.type == pygame.KEYDOWN:
                 return
         screen.fill(NAVY)
@@ -897,7 +926,7 @@ def error_screen(screen: pygame.Surface, message: str) -> None:
         screen.blit(headline, headline.get_rect(center=(theme.WIDTH // 2, theme.HEIGHT // 2 - 45)))
         screen.blit(detail, detail.get_rect(center=(theme.WIDTH // 2, theme.HEIGHT // 2)))
         screen.blit(prompt, prompt.get_rect(center=(theme.WIDTH // 2, theme.HEIGHT // 2 + 45)))
-        pygame.display.flip()
+        display.present()
 
 
 def parse_args() -> argparse.Namespace:
@@ -906,6 +935,7 @@ def parse_args() -> argparse.Namespace:
     mode.add_argument("--host", action="store_true", help="host a LAN game")
     mode.add_argument("--join", metavar="IP", help="join a host by local IP")
     mode.add_argument("--smoke-test", action="store_true", help="render menu, live states and results headlessly and exit")
+    parser.add_argument("--fullscreen", action="store_true", help="start fullscreen; F11 or Alt+Enter toggles")
     return parser.parse_args()
 
 
@@ -916,7 +946,8 @@ def main() -> int:
         os.environ["SDL_AUDIODRIVER"] = "dummy"
     pygame.init()
     pygame.display.set_caption("Lab Panic")
-    screen = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
+    display = GameDisplay(fullscreen=args.fullscreen)
+    screen = display.canvas
     music = BackgroundMusic()
     try:
         music.start()
@@ -936,16 +967,16 @@ def main() -> int:
                 game.finished = True
                 game.completed = completed
                 renderer.draw(game.snapshot(True), 0)
-                pygame.display.flip()
+                display.present()
         elif args.host:
-            run_host(screen)
+            run_host(screen, display)
         elif args.join:
-            run_client(screen, args.join)
+            run_client(screen, args.join, display)
         else:
-            choice = main_menu(screen)
+            choice = main_menu(screen, display)
             if choice:
                 mode, host = choice
-                run_host(screen) if mode == "host" else run_client(screen, host)
+                run_host(screen, display) if mode == "host" else run_client(screen, host, display)
     finally:
         music.close()
         pygame.quit()

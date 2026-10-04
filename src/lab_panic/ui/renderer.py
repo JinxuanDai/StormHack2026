@@ -11,23 +11,45 @@ class Renderer:
     def __init__(self, assets: AssetStore | None = None) -> None:
         self.assets = assets if assets is not None else AssetStore()
         self.fonts = theme.Fonts()
+        self._player_positions: dict[str, tuple[int, int]] = {}
+        self._player_facing: dict[str, str] = {}
+        self._player_motion_until: dict[str, int] = {}
 
     def draw_gameplay(self, surface: pygame.Surface, snapshot: RoundView) -> None:
         surface.fill(theme.BACKGROUND)
         self._room(surface)
-        for station in snapshot.stations:
-            self._station(surface, station)
+        station_boxes = [(station, self._station(surface, station))
+                         for station in snapshot.stations]
         for sample in snapshot.samples:
             self._sample(surface, sample.x, sample.y)
         for index, player in enumerate(snapshot.players):
-            color = theme.PLAYER_COLORS[index % len(theme.PLAYER_COLORS)]
-            pygame.draw.circle(surface, theme.DARK_INK, (player.x, player.y), 23)
-            pygame.draw.circle(surface, color, (player.x, player.y), 20)
-            pygame.draw.rect(surface, theme.INK, (player.x - 10, player.y - 8, 6, 6))
-            pygame.draw.rect(surface, theme.INK, (player.x + 4, player.y - 8, 6, 6))
+            self._player(surface, player, index)
             if player.held_item is not None:
                 self._sample(surface, player.x + 22, player.y + 5)
+        # Labels float above characters; they never participate in collision.
+        for station, sprite_box in station_boxes:
+            self._station_label(surface, station, sprite_box)
         hud.draw_hud(surface, self.fonts, snapshot)
+
+    def _player(self, surface: pygame.Surface, player, index: int) -> None:
+        previous = self._player_positions.get(player.player_id, (player.x, player.y))
+        dx = player.x - previous[0]
+        dy = player.y - previous[1]
+        facing = self._player_facing.get(player.player_id, "down")
+        if dx or dy:
+            if abs(dx) > abs(dy):
+                facing = "right" if dx > 0 else "left"
+            else:
+                facing = "down" if dy > 0 else "up"
+            self._player_motion_until[player.player_id] = pygame.time.get_ticks() + 120
+        now = pygame.time.get_ticks()
+        moving = now < self._player_motion_until.get(player.player_id, 0)
+        frame = (now // 140) % 3 if moving else 1
+        sprite = self.assets.character_frame(index, facing, frame)
+        sprite_rect = sprite.get_rect(midbottom=(player.x, player.y + 22))
+        surface.blit(sprite, sprite_rect)
+        self._player_positions[player.player_id] = (player.x, player.y)
+        self._player_facing[player.player_id] = facing
 
     def _room(self, surface) -> None:
         # Match the reference viewpoint: a quiet rear wall beneath the HUD,
@@ -47,7 +69,7 @@ class Renderer:
         pygame.draw.line(surface, (52, 112, 123), (room.left, floor_top), (room.right, floor_top), 3)
         pygame.draw.rect(surface, theme.BORDER, room, 2)
 
-    def _station(self, surface, station: StationView) -> None:
+    def _station(self, surface, station: StationView) -> pygame.Rect:
         rect = pygame.Rect(station.x, station.y, station.width, station.height)
         visual_sizes = {
             "extraction": (120, 100),
@@ -103,12 +125,12 @@ class Renderer:
                 slide = self.assets.sprite("blood_smear_slide", (18, 9))
                 surface.blit(slide, slide.get_rect(center=(sprite_box.left + 46, sprite_box.top + 56)))
 
-        self._station_label(surface, station, rect, sprite_box)
         if station.is_complete:
             hud.draw_checkmark(surface, (sprite_box.right - 5, sprite_box.top + 8))
         elif station.is_processing:
             progress = pygame.Rect(rect.centerx - 48, sprite_box.bottom + 2, 96, 8)
             hud.draw_progress(surface, progress, station.processing_progress)
+        return sprite_box
 
     def _sample_bench(self, surface: pygame.Surface, sprite_box: pygame.Rect) -> None:
         """Assemble the reference extraction bench from its separate sprites."""
@@ -134,7 +156,6 @@ class Renderer:
         self,
         surface: pygame.Surface,
         station: StationView,
-        logical_rect: pygame.Rect,
         sprite_box: pygame.Rect,
     ) -> None:
         lines = tuple(label.upper() for label in station.label)
@@ -177,23 +198,86 @@ class Renderer:
 
     @staticmethod
     def menu_buttons() -> tuple[pygame.Rect, ...]:
-        return tuple(pygame.Rect((theme.WIDTH - 280) // 2, 270 + index * 68, 280, 52) for index in range(3))
+        # These stable rectangles are both the keyboard layout and mouse
+        # hitboxes. The selected button grows around its center when drawn.
+        return tuple(
+            pygame.Rect((theme.WIDTH - 214) // 2, 306 + index * 57, 214, 42)
+            for index in range(3)
+        )
+
+    def _menu_background(self, surface: pygame.Surface) -> None:
+        """Build the approved pixel-lab menu without touching game state."""
+        wall_bottom = 238
+        surface.fill((174, 216, 218))
+        pygame.draw.rect(surface, (188, 222, 222), (0, 0, theme.WIDTH, wall_bottom))
+
+        floor = pygame.Rect(0, wall_bottom, theme.WIDTH, theme.HEIGHT - wall_bottom)
+        tile = self.assets.sprite("floor_tile", theme.FLOOR_TILE_SIZE)
+        old_clip = surface.get_clip()
+        surface.set_clip(old_clip.clip(floor))
+        for y in range(floor.top, floor.bottom, tile.get_height()):
+            for x in range(floor.left, floor.right, tile.get_width()):
+                surface.blit(tile, (x, y))
+        surface.set_clip(old_clip)
+        pygame.draw.rect(surface, (91, 160, 166), (0, wall_bottom - 7, theme.WIDTH, 7))
+        pygame.draw.line(surface, (52, 112, 123), (0, wall_bottom), (theme.WIDTH, wall_bottom), 3)
+
+        # Matching compact windows frame the title at the same height.
+        for window in (pygame.Rect(94, 36, 112, 64), pygame.Rect(754, 36, 112, 64)):
+            pygame.draw.rect(surface, (120, 174, 181), window.inflate(8, 8))
+            pygame.draw.rect(surface, (65, 92, 108), window.inflate(4, 4))
+            pygame.draw.rect(surface, (151, 204, 218), window)
+            pygame.draw.polygon(
+                surface,
+                (207, 235, 239),
+                [(window.left + 8, window.top), (window.left + 28, window.top),
+                 (window.left + 8, window.top + 28)],
+            )
+            pygame.draw.line(surface, (118, 171, 190), window.midtop, window.midbottom, 2)
+
+        # Reuse gameplay's laboratory sprites so the menu matches the room.
+        machines = (
+            ("sample_bench", (18, 145, 126, 96)),
+            ("cbc_machine", (150, 142, 92, 99)),
+            ("lab_printer", (247, 139, 89, 102)),
+            ("microscope", (624, 143, 100, 98)),
+            ("coagulation_machine", (732, 139, 78, 102)),
+            ("submit_terminal", (816, 148, 126, 109)),
+        )
+        for name, rect in machines:
+            surface.blit(self.assets.sprite(name, rect[2:]), rect[:2])
+
+        # Foreground corners frame the composition without blocking controls.
+        bench = self.assets.sprite("sample_bench", (180, 142))
+        surface.blit(bench, (-44, 530))
+        surface.blit(pygame.transform.flip(bench, True, False), (824, 530))
+
+    def _menu_doctor(self, surface: pygame.Surface, player_index: int, center_x: int) -> None:
+        sprite = self.assets.menu_character(player_index, (110, 170))
+        rect = sprite.get_rect(midbottom=(center_x, 493))
+        surface.blit(sprite, rect)
 
     def draw_menu(self, surface, selected: int = 0) -> None:
-        surface.fill(theme.BACKGROUND)
-        title_panel = pygame.Rect(272, 146, 416, 82)
+        self._menu_background(surface)
+
+        # Raise the title; lower the doctors and three-button group together.
+        title_panel = pygame.Rect(278, 14, 404, 72)
         theme.cut_panel(surface, title_panel, theme.PANEL, theme.BORDER, cut=12)
         theme.text(surface, self.fonts.title, "LAB PANIC", title_panel.center, theme.INK, center=True)
+
+        self._menu_doctor(surface, 0, 226)
+        self._menu_doctor(surface, 1, theme.WIDTH - 226)
         for index, (label, rect) in enumerate(zip(("HOST", "JOIN", "QUIT"), self.menu_buttons())):
             active = index == selected
+            draw_rect = rect.inflate(16, 8) if active else rect
             theme.cut_panel(
                 surface,
-                rect,
+                draw_rect,
                 theme.TEAL if active else theme.PANEL,
                 theme.INK if active else theme.BORDER,
                 cut=8,
             )
-            theme.text(surface, self.fonts.heading, label, rect.center, theme.INK, center=True)
+            theme.text(surface, self.fonts.heading, label, draw_rect.center, theme.INK, center=True)
 
     def draw_result(self, surface, *, success: bool) -> None:
         surface.fill(theme.BACKGROUND)

@@ -76,10 +76,17 @@ Treat cached surfaces as read-only. Packaging may supply an explicit asset root
 to `AssetStore`. Keep station type mapping in `STATION_SPRITES`; rendering does
 not require changes to A/B's state models.
 
-Both players remain Phase 1 circle placeholders. Station label plates, borders,
-shadows, HUD, menus and results use Pygame primitives plus the bundled Press
-Start 2P font. Its SIL OFL license and upstream changelog live in
-`assets/fonts/`. Four mock cards and all seven areas fit the fixed 960 × 640
+Both players now use separate 40 × 64, four-direction doctor sprite sheets.
+The renderer infers facing and walk animation from successive immutable display
+positions, so gameplay and network payloads do not need animation fields.
+Sprites render at their native 40 × 64 size and keep the existing collision
+coordinates unchanged. Missing character files fall back to the
+Phase 1 circle art. Source, license and modifications are recorded beside the
+character assets and in `assets/README.md`.
+
+Station label plates, borders, HUD, menus and results use Pygame primitives plus
+the bundled Press Start 2P font. Its SIL OFL license and upstream changelog live
+in `assets/fonts/`. Four mock cards and all seven areas fit the fixed 960 × 640
 scene. Sample carrying and machine states are static examples, with no movement
 or rules.
 
