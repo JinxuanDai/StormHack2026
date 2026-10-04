@@ -29,11 +29,14 @@ from .ui.music import BackgroundMusic
 from .ui.audio import AudioManager
 from .ui.audio_observer import AudioObserver
 from .ui.renderer import Renderer as UIRenderer
+from .ui.renderer import player_visual_rect, held_item_position
 from .ui.views import PatientView, PlayerView, RoundView, StationView
 
 
 WIDTH, HEIGHT = 1280, 720
 HUD_HEIGHT = 128
+# Inverse of display_position's vertical transform: floor starts below the wall.
+WALKABLE_TOP = math.ceil(HUD_HEIGHT + (theme.FLOOR_TOP - 140) * (720 - HUD_HEIGHT) / 460)
 FPS = 60
 PORT = 50505
 PROTOCOL_VERSION = 2
@@ -402,7 +405,7 @@ class GameState:
             old = player[axis]
             player[axis] += amount
             rect = self.player_rect(player)
-            if rect.left < 8 or rect.right > WIDTH - 8 or rect.top < HUD_HEIGHT + 8 or rect.bottom > HEIGHT - 8:
+            if rect.left < 8 or rect.right > WIDTH - 8 or rect.top < WALKABLE_TOP or rect.bottom > HEIGHT - 8:
                 player[axis] = old
                 continue
             if any(rect.colliderect(solid) for solid in self._solids()):
@@ -685,24 +688,27 @@ class Renderer:
             self.text(f"Patients completed: {state['completed']}", (480, 420), center=True)
             self.text("Esc: quit", (480, 450), center=True)
         else:
-            self.ui.draw_gameplay(self.screen, round_view(state))
+            self.ui.draw_gameplay(self.screen, round_view(state), labels=False)
             for index, player in enumerate(state["players"]):
                 x, y = display_position(player["x"], player["y"])
+                visual = player_visual_rect(x, y)
                 self.text(
                     f"P{index + 1}" + (" (YOU)" if index == local_player else ""),
-                    (x, y + 36),
+                    (visual.centerx, visual.bottom + 14),
                     theme.DARK_INK,
                     center=True,
                 )
                 item = player["item"]
                 if item:
                     label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
-                    self.text(label, (x, y - 54), theme.DARK_INK, center=True)
+                    self.text(label, (visual.centerx, max(theme.HUD_HEIGHT + 10, visual.top - 12)), theme.DARK_INK, center=True)
                     if item["kind"] != "sample":
                         color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
-                        rect = pygame.Rect(x + 16, y - 12, 26, 20)
+                        rect = pygame.Rect(0, 0, 26, 20)
+                        rect.center = held_item_position(x, y)
                         pygame.draw.rect(self.screen, color, rect, border_radius=3)
                         pygame.draw.rect(self.screen, theme.INK, rect, 1, border_radius=3)
+            self.ui.draw_labels(self.screen)
             message = state["players"][local_player]["message"]
             self.text(
                 status or message or "Arrow keys: move   Space: interact   Esc: quit",

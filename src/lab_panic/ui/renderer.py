@@ -3,8 +3,18 @@
 import pygame
 
 from . import hud, theme
-from .assets import AssetStore, STATION_SPRITES
+from .assets import AssetStore, STATION_SPRITES, CHARACTER_DISPLAY_SIZE
 from .views import RoundView, StationView
+
+
+def player_visual_rect(x: int, y: int) -> pygame.Rect:
+    return pygame.Rect((0, 0), CHARACTER_DISPLAY_SIZE).move(
+        x - CHARACTER_DISPLAY_SIZE[0] // 2, y + 22 - CHARACTER_DISPLAY_SIZE[1])
+
+
+def held_item_position(x: int, y: int) -> tuple[int, int]:
+    rect = player_visual_rect(x, y)
+    return (rect.right - 10, rect.top + round(rect.height * 0.65))
 
 
 class Renderer:
@@ -15,21 +25,26 @@ class Renderer:
         self._player_facing: dict[str, str] = {}
         self._player_motion_until: dict[str, int] = {}
 
-    def draw_gameplay(self, surface: pygame.Surface, snapshot: RoundView) -> None:
+    def draw_gameplay(self, surface: pygame.Surface, snapshot: RoundView, *, labels: bool = True) -> None:
         surface.fill(theme.BACKGROUND)
         self._room(surface)
         station_boxes = [(station, self._station(surface, station))
                          for station in snapshot.stations]
+        self._station_boxes = station_boxes
         for sample in snapshot.samples:
             self._sample(surface, sample.x, sample.y)
         for index, player in enumerate(snapshot.players):
             self._player(surface, player, index)
             if player.held_item is not None:
-                self._sample(surface, player.x + 22, player.y + 5)
+                self._sample(surface, *held_item_position(player.x, player.y))
         # Labels float above characters; they never participate in collision.
-        for station, sprite_box in station_boxes:
-            self._station_label(surface, station, sprite_box)
+        if labels:
+            self.draw_labels(surface)
         hud.draw_hud(surface, self.fonts, snapshot)
+
+    def draw_labels(self, surface: pygame.Surface) -> None:
+        for station, sprite_box in self._station_boxes:
+            self._station_label(surface, station, sprite_box)
 
     def _player(self, surface: pygame.Surface, player, index: int) -> None:
         previous = self._player_positions.get(player.player_id, (player.x, player.y))
@@ -46,7 +61,7 @@ class Renderer:
         moving = now < self._player_motion_until.get(player.player_id, 0)
         frame = (now // 140) % 3 if moving else 1
         sprite = self.assets.character_frame(index, facing, frame)
-        sprite_rect = sprite.get_rect(midbottom=(player.x, player.y + 22))
+        sprite_rect = player_visual_rect(player.x, player.y)
         surface.blit(sprite, sprite_rect)
         self._player_positions[player.player_id] = (player.x, player.y)
         self._player_facing[player.player_id] = facing
@@ -55,7 +70,7 @@ class Renderer:
         # Match the reference viewpoint: a quiet rear wall beneath the HUD,
         # followed by one continuous tiled floor and a narrow baseboard.
         room = pygame.Rect(theme.ROOM)
-        floor_top = room.top + 108
+        floor_top = theme.FLOOR_TOP
         pygame.draw.rect(surface, theme.WALL, room)
         floor = pygame.Rect(room.left, floor_top, room.width, room.bottom - floor_top)
         tile = self.assets.sprite("floor_tile", theme.FLOOR_TILE_SIZE)
