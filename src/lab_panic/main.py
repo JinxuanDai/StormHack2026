@@ -23,6 +23,7 @@ if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     __package__ = "lab_panic"
 
+from . import layout
 from .ui import theme
 from .ui.display import GameDisplay
 from .ui.music import BackgroundMusic
@@ -32,8 +33,8 @@ from .ui.renderer import Renderer as UIRenderer
 from .ui.views import PatientView, PlayerView, RoundView, StationView
 
 
-WIDTH, HEIGHT = 1280, 720
-HUD_HEIGHT = 128
+WIDTH, HEIGHT = layout.WORLD_SIZE
+HUD_HEIGHT = layout.WORLD_HUD_HEIGHT
 FPS = 60
 PORT = 50505
 PROTOCOL_VERSION = 2
@@ -402,7 +403,8 @@ class GameState:
             old = player[axis]
             player[axis] += amount
             rect = self.player_rect(player)
-            if rect.left < 8 or rect.right > WIDTH - 8 or rect.top < HUD_HEIGHT + 8 or rect.bottom > HEIGHT - 8:
+            if (rect.left < 8 or rect.right > WIDTH - 8
+                    or rect.top < layout.WORLD_FLOOR_TOP or rect.bottom > HEIGHT - 8):
                 player[axis] = old
                 continue
             if any(rect.colliderect(solid) for solid in self._solids()):
@@ -596,8 +598,7 @@ class GameState:
 
 def display_position(x: float, y: float) -> tuple[int, int]:
     """Map authoritative world coordinates into the UI room interior."""
-    return (round(24 + x * 912 / WIDTH),
-            round(140 + (y - HUD_HEIGHT) * 460 / (HEIGHT - HUD_HEIGHT)))
+    return layout.display_position(x, y)
 
 
 def display_zone(rect: pygame.Rect) -> pygame.Rect:
@@ -700,8 +701,13 @@ class Renderer:
                 item = player["item"]
                 if item:
                     label = item.get("test", item["kind"]).upper() + f" #{item['patient']}"
-                    self.text(label, (x, y - 54), theme.DARK_INK, center=True)
-                    if item["kind"] != "sample":
+                    if item["kind"] == "sample":
+                        sprite_box = self.ui.player_sprite_bounds(str(index))
+                        label_box = pygame.Rect((0, 0), self.ui.fonts.small.size(label))
+                        label_box.midbottom = (sprite_box.centerx, sprite_box.top - 8)
+                        self.text(label, label_box.center, theme.DARK_INK, center=True)
+                    else:
+                        self.text(label, (x, y - 54), theme.DARK_INK, center=True)
                         color = TEST_COLOR[item["test"]] if item["kind"] == "report" else ORANGE
                         rect = pygame.Rect(x + 16, y - 12, 26, 20)
                         pygame.draw.rect(self.screen, color, rect, border_radius=3)

@@ -2,6 +2,7 @@
 
 import pygame
 
+from ..layout import FLOOR_TOP
 from . import hud, theme
 from .assets import AssetStore, STATION_SPRITES
 from .views import RoundView, StationView
@@ -14,6 +15,11 @@ class Renderer:
         self._player_positions: dict[str, tuple[int, int]] = {}
         self._player_facing: dict[str, str] = {}
         self._player_motion_until: dict[str, int] = {}
+        self._player_sprite_bounds: dict[str, pygame.Rect] = {}
+
+    def player_sprite_bounds(self, player_id: str) -> pygame.Rect:
+        """Return the actual sprite bounds from the most recently drawn frame."""
+        return self._player_sprite_bounds[player_id].copy()
 
     def draw_gameplay(self, surface: pygame.Surface, snapshot: RoundView) -> None:
         surface.fill(theme.BACKGROUND)
@@ -48,6 +54,7 @@ class Renderer:
         sprite = self.assets.character_frame(index, facing, frame)
         sprite_rect = sprite.get_rect(midbottom=(player.x, player.y + 22))
         surface.blit(sprite, sprite_rect)
+        self._player_sprite_bounds[player.player_id] = sprite_rect
         self._player_positions[player.player_id] = (player.x, player.y)
         self._player_facing[player.player_id] = facing
 
@@ -55,7 +62,7 @@ class Renderer:
         # Match the reference viewpoint: a quiet rear wall beneath the HUD,
         # followed by one continuous tiled floor and a narrow baseboard.
         room = pygame.Rect(theme.ROOM)
-        floor_top = room.top + 108
+        floor_top = FLOOR_TOP
         pygame.draw.rect(surface, theme.WALL, room)
         floor = pygame.Rect(room.left, floor_top, room.width, room.bottom - floor_top)
         tile = self.assets.sprite("floor_tile", theme.FLOOR_TILE_SIZE)
