@@ -360,7 +360,7 @@ class GameState:
         station = self.stations[test]
         if station["phase"] == "output":
             if item is not None:
-                self.say(player_id, "Hands are full")
+                self.say(player_id, "Report ready: empty hands and collect it first", 3.0)
                 return
             player["item"] = {"kind": "report", "patient": station["patient"], "test": test}
             self.stations[test] = self._idle_station()
@@ -618,6 +618,8 @@ class Renderer:
             pygame.draw.rect(self.screen, report_color, report, border_radius=4)
             pygame.draw.rect(self.screen, BLACK, report, 2, border_radius=4)
             self.text(f"#{station['patient']}", report.center, BLACK, self.tiny, True)
+            self.text("SPACE: collect report (empty hands)",
+                      (rect.centerx, rect.bottom - 10), GRAY, self.tiny, True)
 
     def _draw_players(self, state: dict[str, Any], local_player: int) -> None:
         for index, player in enumerate(state["players"]):
