@@ -3,9 +3,10 @@
 from pathlib import Path
 
 import pygame
+from ..paths import ASSET_ROOT
 
 
-MUSIC_PATH = Path(__file__).resolve().parents[3] / "assets" / "audio" / "background_music.ogg"
+MUSIC_PATH = ASSET_ROOT / "audio" / "background_music.ogg"
 MUSIC_VOLUME = 0.30
 
 

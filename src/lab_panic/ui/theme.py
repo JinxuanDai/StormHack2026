@@ -5,6 +5,7 @@ from pathlib import Path
 import pygame
 
 from ..layout import ROOM
+from ..paths import ASSET_ROOT
 
 WIDTH, HEIGHT = 960, 640
 FPS = 60
@@ -32,7 +33,7 @@ STATION_HEIGHT = 140
 STATION_SPRITE_SIZE = (112, 84)
 SAMPLE_SIZE = (12, 34)
 FLOOR_TILE_SIZE = (96, 96)
-FONT_PATH = Path(__file__).resolve().parents[3] / "assets" / "fonts" / "PressStart2P-Regular.ttf"
+FONT_PATH = ASSET_ROOT / "fonts" / "PressStart2P-Regular.ttf"
 
 
 class Fonts:
