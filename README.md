@@ -31,6 +31,22 @@ as possible during a three-minute shift.
 
 ## Fast start — Windows
 
+### Standalone executable (recommended for players)
+
+Download or copy `Lab Panic.exe` from the build's `dist` folder and double-click
+it. Python, Pygame, images, fonts, sound effects, and music are included; no
+installation or internet connection is required to launch. This build is for
+64-bit Windows. For LAN play, both PCs need the same local network and should
+allow Lab Panic through Windows Firewall on private networks.
+
+Packaged high scores are saved in `%LOCALAPPDATA%\Lab Panic\`.
+
+To rebuild after changes, double-click `Build Windows EXE.bat` on a development
+computer with Python 3.12 or 3.13. It produces `dist/Lab Panic.exe` using
+`Lab Panic.spec`. Building downloads dependencies; players do not need them.
+
+### Running from source
+
 1. Install [Python 3.12](https://www.python.org/downloads/) and enable
    **Add Python to PATH** during installation.
 2. Clone or download this repository.

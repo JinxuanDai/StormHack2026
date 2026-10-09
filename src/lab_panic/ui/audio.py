@@ -10,9 +10,10 @@ from pathlib import Path
 import pygame
 
 from .audio_observer import AudioEvent
+from ..paths import ASSET_ROOT
 
 
-AUDIO_ROOT = Path(__file__).resolve().parents[3] / "assets" / "audio"
+AUDIO_ROOT = ASSET_ROOT / "audio"
 CUE_FILES = {cue: f"{cue}.wav" for cue in (
     "pickup", "machine_insert", "machine_remove", "processing_start",
     "processing_loop", "processing_complete", "package_insert", "trash",

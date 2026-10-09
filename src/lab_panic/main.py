@@ -24,6 +24,7 @@ if not __package__:
     __package__ = "lab_panic"
 
 from . import layout
+from .paths import RESOURCE_ROOT, ASSET_ROOT, high_score_path
 from .ui import theme
 from .ui.display import GameDisplay
 from .ui.music import BackgroundMusic
@@ -45,9 +46,9 @@ INTERACT_DISTANCE = 54
 SNAPSHOT_RATE = 1.0 / 30.0
 CARRIED_ITEM_LABEL_GAP = 18
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-ASSET_DIR = REPO_ROOT / "assets"
-HIGH_SCORE_FILE = REPO_ROOT / ".lab_panic_high_score.json"
+REPO_ROOT = RESOURCE_ROOT
+ASSET_DIR = ASSET_ROOT
+HIGH_SCORE_FILE = high_score_path()
 
 BG = (225, 233, 232)
 FLOOR_A = (205, 218, 216)

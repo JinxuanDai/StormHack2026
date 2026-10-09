@@ -11,9 +11,10 @@ from pathlib import Path
 import pygame
 
 from . import theme
+from ..paths import ASSET_ROOT
 
-LABORATORY_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "laboratory"
-CHARACTER_ROOT = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "characters"
+LABORATORY_ROOT = ASSET_ROOT / "sprites" / "laboratory"
+CHARACTER_ROOT = ASSET_ROOT / "sprites" / "characters"
 CHARACTER_FILES = ("doctor_female.png", "doctor_male.png")
 MENU_CHARACTER_FILES = ("menu_doctor_female.png", "menu_doctor_male.png")
 CHARACTER_CELL = (40, 64)
